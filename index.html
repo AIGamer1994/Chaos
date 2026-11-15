@@ -165,6 +165,16 @@ function putToDiscard(cards, sourceText) {
     log(`🗑️ ${sourceText} ➔ ${cardNames} 進入棄牌堆 (目前共 ${state.discard.length} 張)`, 'discard');
 }
 
+function canWinWithGargoyle(p, frontCount) {
+    return frontCount >= 4 &&
+        state.players.every(other => other.id === p.id || other.front.length < frontCount);
+}
+
+function canWinWithJoker(p, frontCount) {
+    return frontCount <= 2 &&
+        state.players.every(other => other.id === p.id || other.front.length > frontCount);
+}
+
 // 抽牌邏輯：如果抽到道具牌，直接棄掉並返回 isItem: true
 function drawCardLogic(player, isActiveTurn) {
     if (state.deck.length === 0) return null;
@@ -210,7 +220,7 @@ function getTenpaiInfo(p) {
     const checkWin = (cardTitle, cardValue) => {
         switch(cardTitle) {
             case '克蘇魯': return false; 
-            case '魔龍': return state.discard.length >= 8;
+            case '魔龍': return front.reduce((sum, c) => sum + (c.v || 0), 0) >= 30;
             case '巨魔': return front.filter(c => c.v >= 10).length >= 2;
             case '死靈法師': return front.filter(c => c.v <= 2).length >= 3;
             case '無頭騎士': {
@@ -221,6 +231,7 @@ function getTenpaiInfo(p) {
             }
             case '奇美拉': return new Set(front.map(c => c.n)).size >= 5;
             case '魅魔': return false;
+            case '小丑': return canWinWithJoker(p, front.length);
             case '美杜莎': {
                 return front.filter(c => c.v >= 7 && c.v <= 9).length >= 3;
             }
@@ -234,9 +245,7 @@ function getTenpaiInfo(p) {
                 return pairs >= 2;
             }
             case '石像鬼': {
-                if (front.length < 2) return false;
-                const maxFront = Math.max(...state.players.map(x => x.id === p.id ? front.length : x.front.length));
-                return front.length === maxFront && state.players.filter(x => x.id === p.id ? front.length === maxFront : x.front.length === maxFront).length === 1;
+                return canWinWithGargoyle(p, front.length);
             }
             case '科學怪人': {
                 // 打出前，面前區剛好是 3 張順序遞增的牌
@@ -351,7 +360,7 @@ function initGame() {
 
     for(let i=0; i<3; i++) {
         const pName = i === 0 ? '你' : `AI ${i}`;
-        const pObj = { id: i, name: pName, hand: [], front: [], immune: false, revealedCenter: false, status: '存活' };
+        const pObj = { id: i, name: pName, hand: [], front: [], immune: false, knownCenter: [], knownReserves: [], status: '存活' };
         const initCard = forceDraw(pObj, false);
         if (initCard) pObj.hand.push(initCard);
         state.players.push(pObj);
@@ -462,6 +471,7 @@ function takeCenter() {
     const p = state.players[state.currentTurn];
     if (p.hand.some(c => c.id === 'PUMPKIN_KING')) return;
 
+    const knownCenter = state.players[0].knownCenter || [];
     const hasBloodInDiscard = state.discard.some(c => c.id === 'BLOOD');
     const isFrontEmpty = p.front.length === 0;
     const canSummonVampire = hasBloodInDiscard && isFrontEmpty;
@@ -474,7 +484,7 @@ function takeCenter() {
     showModal(`選擇要拿的暗牌`, `
         <p style="font-size:12px; color:#fcd34d; margin-bottom:10px;">${conditionText}</p>
         <div style="display:flex; gap:10px; justify-content:center;">
-            ${state.centerCards.map((c, i) => c ? `<button onclick="confirmTakeCenter(${i}, ${canSummonVampire})" style="padding:20px; background:#475569; color:white;">暗牌 ${i+1}</button>` : '').join('')}
+            ${state.centerCards.map((c, i) => c ? `<button onclick="confirmTakeCenter(${i}, ${canSummonVampire})" style="padding:20px; background:#475569; color:white;">${knownCenter[i] === c.uid ? `${c.n} (${c.v})` : `暗牌 ${i+1}`}</button>` : '').join('')}
         </div>
     `);
 }
@@ -559,14 +569,6 @@ function playCard(index) {
         resolveEffect(p, card);
         
         if (!state.gameOver) {
-            if (card.id === 'PUMPKIN_KING') {
-                const drawn = forceDraw(p, false);
-                if (drawn) {
-                    p.hand.push(drawn);
-                    log(`➔ ${p.name} 因強制打出【南瓜王】，從牌庫抽了 1 張牌補回手牌。`, 'sys');
-                }
-            }
-
             if (card.id === 'WEREWOLF') {
                 p.front = p.front.filter(c => c.uid !== card.uid);
                 putToDiscard(card, `${p.name} 打出【狼人】結算完畢，離開面前區`);
@@ -711,7 +713,8 @@ function playCard(index) {
                     }
                 }
             } else if (card.id === 'NIGHTMARE') {
-                p.revealedCenter = true;
+                p.knownCenter = state.centerCards.map(c => c ? c.uid : null);
+                p.knownReserves = state.reserves.map(c => c ? c.uid : null);
                 log(`🌑 ${p.name} 打出了【夢魘】，永久獲得了暗牌區與備用牌的視野！`, 'nightmare');
                 if (p.name === '你') {
                     let html = `<p>你翻開了暗牌與備用牌，這些牌將永久對你可見。</p>`;
@@ -735,7 +738,7 @@ function checkVictoryCondition(p, card) {
     const prevFront = front.filter(c => c.uid !== card.uid); 
     
     switch(card.id) {
-        case 'DRAGON': return state.discard.length >= 8;
+        case 'DRAGON': return prevFront.reduce((sum, c) => sum + (c.v || 0), 0) >= 30;
         case 'WEREWOLF': return false;
         case 'TROLL': return prevFront.filter(c => c.v >= 10).length >= 2;
         case 'NECROMANCER': return prevFront.filter(c => c.v <= 2).length >= 3;
@@ -749,7 +752,7 @@ function checkVictoryCondition(p, card) {
             const uniqueNames = new Set(prevFront.map(c => c.n));
             return uniqueNames.size >= 5;
         }
-        case 'JOKER': return false;
+        case 'JOKER': return canWinWithJoker(p, prevFront.length);
         case 'NIGHTMARE': return false;
         case 'MEDUSA':
             return prevFront.filter(c => c.v >= 7 && c.v <= 9).length >= 3;
@@ -762,12 +765,7 @@ function checkVictoryCondition(p, card) {
             }
             return pairs >= 2;
         }
-        case 'GARGOYLE':
-            if (prevFront.length < 2) return false;
-            const prevMax = Math.max(...state.players.map(x => x.front.filter(c => c.uid !== card.uid).length));
-            const isMost = prevFront.length === prevMax;
-            const isTie = state.players.filter(x => x.front.filter(c => c.uid !== card.uid).length === prevMax).length > 1;
-            return isMost && !isTie;
+        case 'GARGOYLE': return canWinWithGargoyle(p, prevFront.length);
         case 'FRANKENSTEIN':
             // 打出前，自己面前區的牌剛好是 3 張順序遞增的牌
             if (prevFront.length !== 3) return false;
@@ -1302,8 +1300,6 @@ function endTurn() {
         }
     }
 
-    const prevPlayer = p;
-
     if (!state.extraTurn) {
         state.currentTurn = (state.currentTurn + 1) % state.players.length;
     } else {
@@ -1314,7 +1310,7 @@ function endTurn() {
     state.uiState = 'DRAW_PHASE'; 
     updateUI();
 
-    if (prevPlayer.name !== '你') {
+    if (state.players[state.currentTurn].name !== '你') {
         state.waitForPlayerAck = true;
         document.getElementById('turn-indicator').innerText = `等待確認...`;
         document.getElementById('global-controls').innerHTML = `
@@ -1485,6 +1481,15 @@ function aiTurn() {
     if (state.gameOver) return;
     const p = state.players[state.currentTurn];
     
+    const availableCenterSlots = state.centerCards
+        .map((card, index) => card ? index : -1)
+        .filter(index => index !== -1);
+    if (p.hand.length === 1 && !p.hand.some(c => c.id === 'PUMPKIN_KING') &&
+        availableCenterSlots.length > 0 && Math.random() < 0.25) {
+        aiTakeCenter(p, availableCenterSlots);
+        return;
+    }
+
     if (p.hand.length < 2 && state.deck.length > 0) {
         const result = drawCardLogic(p, true);
         if (!result) {
@@ -1527,17 +1532,47 @@ function aiTurn() {
     }, 400);
 }
 
+function aiTakeCenter(p, availableSlots) {
+    const index = availableSlots[Math.floor(Math.random() * availableSlots.length)];
+    const taken = state.centerCards[index];
+    const canSummonVampire = state.discard.some(c => c.id === 'BLOOD') && p.front.length === 0;
+
+    if (taken.id === 'VAMPIRE') {
+        if (canSummonVampire) {
+            declareWinner(p, `${p.name} 在【鮮血】出現後，且面前無牌，成功從暗牌召喚出【吸血鬼】，獲得勝利！`);
+        } else {
+            log(`⚠️ ${p.name} 拿走了【吸血鬼】，但未達成召喚條件，必須將它放回暗牌區！`, 'sys');
+            endTurn();
+        }
+        return;
+    }
+
+    state.centerCards[index] = null;
+    p.hand.push(taken);
+    const returnableIndices = p.hand
+        .map((card, cardIndex) => card.id === 'PUMPKIN_KING' ? -1 : cardIndex)
+        .filter(cardIndex => cardIndex !== -1);
+    const returnIndex = returnableIndices[Math.floor(Math.random() * returnableIndices.length)];
+    const returned = p.hand.splice(returnIndex, 1)[0];
+    state.centerCards[index] = returned;
+
+    logSys(`${p.name} 從暗牌區拿了一張牌，並將【${returned.n}】放回暗牌區。`);
+    updateUI();
+    endTurn();
+}
+
 // --- UI 更新 ---
 function updateUI() {
     const me = state.players[0];
-    const isMeRevealed = me && me.revealedCenter;
+    const knownCenter = me ? me.knownCenter || [] : [];
+    const knownReserves = me ? me.knownReserves || [] : [];
 
     document.getElementById('reserve-count').innerText = `${state.reserves.length} 張`;
     const reserveDiv = document.getElementById('reserve-cards');
     if (reserveDiv) {
-        reserveDiv.innerHTML = state.reserves.map(c => {
+        reserveDiv.innerHTML = state.reserves.map((c, i) => {
             if (!c) return `<div class="card">空</div>`;
-            if (isMeRevealed) {
+            if (knownReserves[i] === c.uid) {
                 return `<div class="card"><div class="num">${c.v}</div><div class="name">${c.n}</div></div>`;
             }
             return `<div class="card back">?</div>`;
@@ -1553,7 +1588,7 @@ function updateUI() {
     
     centerDiv.innerHTML = state.centerCards.map((c, i) => {
         if (!c) return `<div class="card">空</div>`;
-        if (isMeRevealed) {
+        if (knownCenter[i] === c.uid) {
             return `<div class="card"><div class="num">${c.v}</div><div class="name">${c.n}</div></div>`;
         }
         return `<div class="card back">?</div>`;
