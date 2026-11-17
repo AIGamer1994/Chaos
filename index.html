@@ -74,6 +74,15 @@
 <body>
 
 <h1>群魔 Chaos - 道具牌修正版 (測試全明牌模式)</h1>
+<div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:10px;">
+    <label for="player-count" style="color:#cbd5e1; font-weight:bold;">遊戲人數：</label>
+    <select id="player-count" style="padding:7px 10px; background:#2a3542; color:white; border:1px solid #475569; border-radius:6px;">
+        <option value="3">3 人（你 + 2 AI）</option>
+        <option value="4">4 人（你 + 3 AI）</option>
+        <option value="5">5 人（你 + 4 AI）</option>
+        <option value="6">6 人（你 + 5 AI）</option>
+    </select>
+</div>
 <button class="btn-restart" onclick="initGame()">🔄 重新開始</button>
 <button class="btn-restart" onclick="showCardGuide()" style="background:#475569;">📖 卡牌說明</button>
 
@@ -505,6 +514,7 @@ function declareWinner(winner, reasonText) {
 
 // --- 初始化遊戲 ---
 function initGame() {
+    const playerCount = Number(document.getElementById('player-count').value);
     state = { 
         players: [], deck: [], discard: [], centerCards: [], reserves: [],
         currentTurn: 0, gameOver: false, extraTurn: false, 
@@ -553,7 +563,7 @@ function initGame() {
     state.deck = [...bot, ...mid, ...top]; 
     state.initialDeckSize = state.deck.length;
 
-    for(let i=0; i<3; i++) {
+    for(let i=0; i<playerCount; i++) {
         const pName = i === 0 ? '你' : `AI ${i}`;
         const pObj = { id: i, name: pName, hand: [], front: [], immune: false, knownCenter: [], knownReserves: [], status: '存活' };
         const initCardIndex = state.deck.findIndex(card =>
@@ -566,7 +576,7 @@ function initGame() {
     const roleCardCount = CARD_DEFS.reduce((total, def) =>
         total + (def.id === 'ZOMBIE' || def.id === 'SKELETON' ? 4 : 1), 0) + 2;
     const totalCardCount = roleCardCount + 3;
-    logSys(`牌庫初始化：角色牌 ${roleCardCount} 張（含海怪及 2 張小丑）、道具牌 3 張，共 ${totalCardCount} 張；發完暗牌、備用牌及三位玩家起手牌後，牌庫剩餘 ${state.deck.length} 張。`);
+    logSys(`牌庫初始化：角色牌 ${roleCardCount} 張（含海怪及 2 張小丑）、道具牌 3 張，共 ${totalCardCount} 張；發完暗牌、備用牌及 ${playerCount} 位玩家起手牌後，牌庫剩餘 ${state.deck.length} 張。`);
     startTurn();
 }
 
