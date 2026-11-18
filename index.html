@@ -225,7 +225,7 @@ const CARD_GUIDE = [
     { id: 'SEA_MONSTER', n: '海怪', victory: '打出前，自己面前區至少有１對數字相同的牌（1號2號不算）。', effect: '查看牌堆頂的1張牌再決定是否交換。' },
     { id: 'VAMPIRE', n: '吸血鬼', victory: '達成條件成功從暗牌中召喚。', effect: '鮮血牌出現過後，且面前區點數總和為 0 時可從暗牌堆拿出。' },
     { id: 'WEREWOLF', n: '狼人', victory: '月亮牌打出前手握此牌。', effect: '打出前要棄掉面前區的一張牌（包括狼人自己）。' },
-    { id: 'SANDWORM', n: '沙蟲', victory: '打出前，自己面前區至少有２張藍色牌，而且你是場上面前區最多藍色牌的玩家（平手不算）。', effect: '從別人面前區選一張放到自己面前區。' },
+    { id: 'SANDWORM', n: '沙蟲', victory: '打出前，自己面前區至少有２張藍色牌，而且你是場上面前區最多藍色牌的玩家（平手不算）。', effect: '從別人面前區選一張放到自己面前區；若奪得牛頭人，可立即選擇棄掉它以獲得額外回合。' },
     { id: 'NIGHTMARE', n: '夢魘', victory: '打出前，自己面前區至少有２張紅色牌，而且你是場上面前區最多紅色牌的玩家（平手不算）。', effect: '查看暗牌及備用牌的卡。' },
     { id: 'NECROMANCER', n: '死靈法師', victory: '打出前，自己面前區至少有３張數值２以下的牌。', effect: '從棄牌區選一張放到自己面前區。' },
     { id: 'TROLL', n: '巨魔', victory: '打出前，自己面前區至少有２張１０或以上的牌。', effect: '比手牌大，手牌較小的放在面前較大者面前，手牌較小者抽牌補回一張牌。' },
@@ -297,6 +297,37 @@ function targetableHandCards(player) { return player.hand.filter(card => !isJoke
 function getGuessTargets(player) {
     return state.players.filter(target =>
         target.id !== player.id && target.hand.length > 0 && !target.immune);
+}
+function getUnplayedCardOptions(player) {
+    const remaining = new Map();
+    CARD_DEFS.forEach(def => {
+        const count = def.id === 'ZOMBIE' || def.id === 'SKELETON' ? 4 : 1;
+        const key = `${def.n}|${def.v}`;
+        remaining.set(key, { name: def.n, value: def.v, count });
+    });
+    [SPECIALS.RED_JOKER, SPECIALS.BLUE_JOKER].forEach(card => {
+        remaining.set(`${card.n}|${card.v}`, { name: card.n, value: card.v, count: 1 });
+    });
+
+    const knownCards = [
+        ...state.discard,
+        ...state.players.flatMap(other => other.front),
+        ...player.hand
+    ];
+    knownCards.forEach(card => {
+        const option = remaining.get(`${card.n}|${card.v}`);
+        if (option) option.count--;
+    });
+    return [...remaining.values()].filter(option => option.count > 0);
+}
+function renderUnplayedCardHint(player) {
+    const options = getUnplayedCardOptions(player);
+    const cards = options.map(option =>
+        `<span class="mini-card">${option.value} ${option.name} ×${option.count}</span>`).join('');
+    return `<div style="background:#1e293b; padding:10px; border-radius:6px; margin:10px 0;">
+        <strong style="color:#fcd34d;">尚未公開的牌（扣除棄牌、面前牌及你的手牌）：</strong>
+        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${cards || '沒有可列出的牌'}</div>
+    </div>`;
 }
 function isDarkMode() {
     return document.getElementById('game-mode').value === 'dark';
@@ -1127,6 +1158,7 @@ function showHellLordModal(p, canWin = true) {
         `<option value="${target.id}">${target.name}</option>`).join('');
     showModal('地獄領主的猜測', `
         <p>選擇兩位不同玩家，並各猜一次手牌數值 (0-13)：</p>
+        ${renderUnplayedCardHint(p)}
         <div style="margin-bottom:10px;">
             <label>第一位玩家與猜測：</label>
             <select id="hell-lord-target-1" style="width:100%; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">${options}</select>
@@ -1334,6 +1366,7 @@ function playCard(index, forcePair = false, companionIndex = -1) {
                         const stolen = opp.front.splice(selected.index, 1)[0];
                         p.front.push(stolen);
                         log(`🃏 ${p.name} 的【沙蟲】從【${opp.name}】面前奪取了【${stolen.n} (${stolen.v})】放入自己面前。`, 'joker');
+                        offerStolenMinotaur(p, stolen);
                     } else {
                         log(`🃏 ${p.name} 的【沙蟲】想奪取別人的牌，但沒有目標。`, 'sys');
                     }
@@ -1958,6 +1991,7 @@ function activateJokerCardEffect(p, selectedCard, joker) {
                     const stolen = target.front.splice(selected.index, 1)[0];
                     p.front.push(stolen);
                     log(`🃏 ${p.name} 透過【${joker.n}】發動【沙蟲】效果，從【${target.name}】奪取【${stolen.n}】。`, 'joker');
+                    offerStolenMinotaur(p, stolen);
                 } else {
                     log(`🃏 ${p.name} 的【沙蟲】效果沒有可奪取的目標。`, 'sys');
                 }
@@ -2079,8 +2113,55 @@ function confirmSandworm(targetId, cardIndex) {
         const stolen = target.front.splice(cardIndex, 1)[0];
         p.front.push(stolen);
         log(`🃏 ${p.name} 的【沙蟲】從【${target.name}】面前奪取了【${stolen.n} (${stolen.v})】放入自己面前。`, 'joker');
+        closeModal();
+        updateUI();
+        if (offerStolenMinotaur(p, stolen)) return;
+        endTurn();
+        return;
     }
     
+    closeModal();
+    updateUI();
+    endTurn();
+}
+
+function offerStolenMinotaur(player, card) {
+    if (card.id !== 'MINOTAUR') return false;
+
+    if (player.name !== '你') {
+        const index = player.front.findIndex(frontCard => frontCard.uid === card.uid);
+        if (index !== -1) {
+            const discarded = player.front.splice(index, 1)[0];
+            putToDiscard(discarded, `${player.name} 因【沙蟲】奪得【牛頭人】後選擇棄掉`);
+            state.extraTurn = true;
+            log(`🐂 ${player.name} 選擇棄掉奪得的【牛頭人】，獲得額外回合。`, 'target');
+        }
+        return false;
+    }
+
+    showModal('沙蟲取得牛頭人', `
+        <p>要立即棄掉剛奪得的【牛頭人】，以獲得額外回合嗎？</p>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button onclick="resolveStolenMinotaur(true, '${card.uid}')" style="flex:1; padding:10px; background:#10b981; color:white; border:none; border-radius:4px;">棄掉並獲得額外回合</button>
+            <button onclick="resolveStolenMinotaur(false, '${card.uid}')" style="flex:1; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">保留牛頭人</button>
+        </div>
+    `, { onCancel: false });
+    return true;
+}
+
+function resolveStolenMinotaur(discardForExtraTurn, cardUid) {
+    const player = state.players[state.currentTurn];
+    if (discardForExtraTurn) {
+        const index = player.front.findIndex(card => card.uid === cardUid && card.id === 'MINOTAUR');
+        if (index !== -1) {
+            const discarded = player.front.splice(index, 1)[0];
+            putToDiscard(discarded, `${player.name} 因【沙蟲】奪得【牛頭人】後選擇棄掉`);
+            state.extraTurn = true;
+            log(`🐂 ${player.name} 棄掉奪得的【牛頭人】，獲得額外回合。`, 'target');
+        }
+    } else {
+        log(`🐂 ${player.name} 選擇保留奪得的【牛頭人】。`, 'sys');
+    }
     closeModal();
     updateUI();
     endTurn();
@@ -2259,6 +2340,7 @@ function showSkeletonModal(p) {
 
     showModal('骷髏的猜測', `
         <p>選擇一位玩家，猜兩個手牌數值 (0-13)；任一猜中非小丑手牌即成功。</p>
+        ${renderUnplayedCardHint(p)}
         <div style="margin-bottom:15px;">
             <label>選擇玩家：</label>
             <select id="skel-target" style="width:100%; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">
@@ -2727,7 +2809,7 @@ function aiTakeCenter(p, availableSlots) {
             p.front.push(taken);
             declareWinner(p, `${p.name} 在【鮮血】出現後，且面前無牌，成功從暗牌召喚出【吸血鬼】，獲得勝利！`);
         } else {
-            log(`⚠️ ${p.name} 拿走了【吸血鬼】，但未達成召喚條件，必須將它放回暗牌區！`, 'sys');
+            log(`⚠️ ${p.name} 選擇了暗牌 ${index + 1}，但未達成召喚條件，暗牌放回原位。`, 'sys');
             endTurn();
         }
         return;
@@ -2742,7 +2824,7 @@ function aiTakeCenter(p, availableSlots) {
     const returned = p.hand.splice(returnIndex, 1)[0];
     state.centerCards[index] = returned;
 
-    logSys(`${p.name} 從暗牌區拿了一張牌，並將【${returned.n}】放回暗牌區。`);
+    logSys(`${p.name} 拿一還一，換了暗牌 ${index + 1}。`);
     updateUI();
     endTurn();
 }
@@ -2786,7 +2868,7 @@ function updateUI() {
     document.getElementById('discard-count').innerText = `${state.discard.length} 張`;
     const discardDiv = document.getElementById('discard-cards');
     discardDiv.innerHTML = state.discard.map(c => `
-        <span class="mini-card ${c.id === 'BLOOD' ? 'blood' : ''} ${c.suit ? `suit-${c.suit}` : ''}" onclick="showCardInfo('${c.id}')" style="cursor:pointer;" title="點擊查看說明">${c.suit ? `<span class="suit-symbol">${SUIT_SYMBOLS[c.suit]}</span>` : ''}${c.n}</span>
+        <span class="mini-card ${c.id === 'BLOOD' ? 'blood' : ''} ${c.suit ? `suit-${c.suit}` : ''}" onclick="showCardInfo('${c.id}')" style="cursor:pointer;" title="點擊查看說明">${c.suit ? `<span class="suit-symbol">${SUIT_SYMBOLS[c.suit]}</span>` : ''}${c.v ?? ''} ${c.n}</span>
     `).join('');
 
     const board = document.getElementById('board');
