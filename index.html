@@ -286,7 +286,7 @@ function PromptDialog({ g, pr, dispatch }) {
             return (<Modal title="奇美拉的凝視"><div className={UI.CH.m04}>選一位玩家（可選自己），他必須把手牌放到面前，並從牌庫重抽 1 張。</div>
                 <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
         case 'succubusTarget':
-            return (<Modal title="魅魔的秘密選擇"><div className={UI.CH.m04}>選一位玩家；他獲勝時，你也一起獲勝（但你自己觸發勝利條件時無效）。</div>
+            return (<Modal title="魅魔的秘密選擇"><div className={UI.CH.m04}>選一位玩家；他獲勝時，你也一起獲勝（但你自己觸發勝利條件時無效）。也可以選自己：等於不綁定，你可以自己正常獲勝。</div>
                 <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
         case 'minotaurTarget':
             return (<Modal title="牛頭人的偷窺"><div className={UI.CH.m04}>選一位玩家查看手牌，之後可選擇是否與他交換，並獲得額外回合。</div>
@@ -402,6 +402,72 @@ function DiscardModal({ g, onClose }) {
 function MatchBar({ g }) {
     return <>{g.players.map(p => `${p.name} ${g.match.wins[p.id] || 0}/${g.match.target}`).join('　')}</>;
 }
+// ── 最終比點動畫（牌庫抽完結算）：逐位玩家依序計分；面前牌逐張加總 → 外星人加成 → 翻開手牌加入 → 該玩家總分；最後最高分者放大 ──
+function SettlementAnim({ g, speed, onDone }) {
+    const S = g.settlement;
+    const ev = [];
+    const order = S.rows.map((r, pi) => pi).sort((a, b) => (S.rows[a].total - S.rows[b].total) || (a - b)); // 由點數最小的先開
+    order.forEach(pi => {
+        const r = S.rows[pi];
+        ev.push({ t: 'start', pi, d: 450 });
+        r.fronts.forEach((c, k) => ev.push({ t: 'front', pi, k, d: 480 }));
+        if (r.alien) ev.push({ t: 'alien', pi, d: 750 });
+        r.hand.forEach((c, h) => ev.push({ t: 'hand', pi, h, d: 1050 }));
+        ev.push({ t: 'done', pi, d: 850 });
+    });
+    ev.push({ t: 'win', d: 2400 });
+    const [step, setStep] = useState(0);
+    useEffect(() => {
+        if (step >= ev.length - 1) return; // 最後一步（宣布最高分者）後停住，等玩家點擊才結束
+        const tm = setTimeout(() => setStep(step + 1), ev[step].d / speed);
+        return () => clearTimeout(tm);
+    }, [step, speed]);
+    const applied = ev.slice(0, Math.min(step + 1, ev.length));
+    const winShown = applied.some(e => e.t === 'win');
+    const [canClose, setCanClose] = useState(false);
+    useEffect(() => { if (!winShown) return; const tm = setTimeout(() => setCanClose(true), 700); return () => clearTimeout(tm); }, [winShown]); // 動畫放大後稍等，避免誤觸直接關閉
+    const cur = (() => { let c = -1; applied.forEach(e => { if (e.t === 'start') c = e.pi; if (e.t === 'done' && e.pi === c) c = -1; }); return c; })();
+    return (
+        <Modal title="🏁 最終比點">
+          <div onClick={() => { if (canClose) onDone(); }} className={canClose ? 'cursor-pointer' : ''}>
+            <div className={UI.CH.m04}>牌庫抽完！面前區＋手牌（外星人手持者面前每張 +2）總點數最高者獲勝。</div>
+            {S.rows.map((r, pi) => {
+                const nf = applied.filter(e => e.t === 'front' && e.pi === pi).length;
+                const alienOn = applied.some(e => e.t === 'alien' && e.pi === pi);
+                const nh = applied.filter(e => e.t === 'hand' && e.pi === pi).length;
+                const started = applied.some(e => e.t === 'start' && e.pi === pi);
+                const tot = r.fronts.slice(0, nf).reduce((a, c) => a + c.v, 0) + (alienOn ? r.alien : 0) + r.hand.slice(0, nh).reduce((a, c) => a + c.v, 0);
+                const isWin = winShown && S.winnerIds.includes(r.id);
+                const cls = winShown ? (isWin ? 'settle-win' : 'settle-lose') : (pi === cur ? 'border-amber-400/70' : 'border-slate-600/70') + (started ? '' : ' opacity-60');
+                return (
+                    <div key={r.id} className={'rounded-lg border bg-slate-900/70 px-2 py-1.5 mb-1.5 transition-all duration-500 ' + cls}>
+                        <div className="flex items-center gap-2">
+                            <img src={window.AVATAR_URL(r.id)} className="w-7 h-7 rounded-full object-cover" alt="" onError={e => { e.target.style.visibility = 'hidden'; }} />
+                            <span className="text-[12px] font-black text-sky-300">{r.name}{isWin ? ' 🏆' : ''}</span>
+                            <span className="ml-auto flex items-baseline gap-0.5"><span key={tot} className="settle-pop gothic-num text-xl font-black text-amber-300">{tot}</span><span className="text-[10px] text-slate-400">點</span></span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-1 min-h-[24px]">
+                            {r.fronts.slice(0, nf).map((c, k) => <span key={k} className="settle-pop"><Chip c={c} /></span>)}
+                            {alienOn && <span className="settle-pop text-[10px] font-black text-lime-300 border border-lime-500/60 rounded px-1">👽 外星人 +{r.alien}</span>}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-400">手牌</span>
+                            {r.hand.length === 0 && <span className="text-[10px] text-slate-500">無</span>}
+                            {r.hand.map((c, h) => h < nh
+                                ? <div key={'f' + h} className="settle-flip front-card-bg bg-slate-900 shadow flex flex-col items-center justify-center rounded" style={{ width: 44, height: 58 }}>
+                                    <span className="flex items-center gap-[2px] leading-none"><SuitIcon c={c} className={'w-[10px] h-[10px] ' + suitCls(c)} /><span className={UI.E.e55}>{c.v}</span></span>
+                                    <span className="mt-0.5 text-[8px] font-black text-amber-100 leading-none">{c.n}</span>
+                                  </div>
+                                : <div key={'b' + h} className="card-back rounded shadow" style={{ width: 44, height: 58 }}></div>)}
+                        </div>
+                    </div>
+                );
+            })}
+            {canClose && <div className="mt-2 text-center text-[12px] font-black text-amber-300 animate-pulse">👆 點擊任意處繼續</div>}
+          </div>
+        </Modal>
+    );
+}
 function GameOverModal({ g, onNew, onNext, onClose }) {
     const win = g.winners.map(i => g.players[i].name);
     const m = g.match, champs = m.champions.map(i => g.players[i].name);
@@ -435,7 +501,7 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
     const noPrompt = !g.prompt && !g.gameOver;
     const myTurn = g.currentTurn === HUMAN && noPrompt;
     const hasPK = me.hand.some(c => c.id === 'PUMPKIN_KING');
-    const canDraw = myTurn && g.phase === 'DRAW' && me.hand.length < 2 && g.deck.length > 0;
+    const canDraw = myTurn && g.phase === 'DRAW' && me.hand.length < 2 && (g.deck.length > 0 || (g.reserveDrawOk && g.reserves.length > 0));
     const canTake = myTurn && g.phase === 'DRAW' && me.hand.length === 1 && !hasPK && g.centerCards.some(Boolean);
     const canPlay = myTurn && (g.phase === 'PLAY' || (g.phase === 'DRAW' && me.hand.length >= 2));
     const returning = myTurn && g.phase === 'RETURN';
@@ -616,6 +682,7 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                 </div>
                 <div className={UI.E.e15}>
                     <div>
+                        {g.deck.length > 0 && g.deck.length <= 9 && !g.gameOver && <div className="text-center text-[12px] font-black text-rose-300 tracking-wide mb-0.5 animate-pulse">⚠ 最後 {g.deck.length} 張牌</div>}
                         {awaiting
                             ? <div className="flex flex-col items-center">
                                 <button className={UI.CH.btn + ' !text-[14px] !px-5 !py-2'} onClick={onContinue}>▶ 輪到【{awaiting}】（點擊繼續）</button>
@@ -710,7 +777,8 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                 <BackCtx.Provider value={canUndo && !['minotaurSwap', 'seaMonster', 'ghostMove', 'ghostSettle', 'frankenstein'].includes(g.prompt.type) ? () => { patch({ sel: null, modal: null }); onUndo(); } : null}>
                     <PromptDialog g={g} pr={g.prompt} dispatch={dispatch} />
                 </BackCtx.Provider>)}
-            {g.gameOver && !ui.overDismissed && <GameOverModal g={g} onNew={onNew} onNext={onNext} onClose={() => patch({ overDismissed: true })} />}
+            {g.gameOver && g.settlement && !ui.settleDone && <SettlementAnim g={g} speed={speed} onDone={() => patch({ settleDone: true })} />}
+            {g.gameOver && (!g.settlement || ui.settleDone) && !ui.overDismissed && <GameOverModal g={g} onNew={onNew} onNext={onNext} onClose={() => patch({ overDismissed: true })} />}
             {ui.peek && <CardDetail c={ui.peek} onClose={() => patch({ peek: null })} />}
         </PeekCtx.Provider>
     );

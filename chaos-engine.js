@@ -191,14 +191,14 @@ function forceDraw(player, isActiveTurn = false) {
         if (!res || state.gameOver) return null;
         if (!res.isItem && res.card) return res.card;
     }
-    // 主牌庫空 → 改抽備用牌
+    // 主牌庫空 → 被強制棄牌（失去手牌）的玩家，每人依序改抽 1 張備用牌補回；備用牌也空則抽不到
     while (state.reserves.length > 0) {
         const card = state.reserves.pop();
         if (card.id === 'PUMPKIN' || card.id === 'MOON' || card.id === 'BLOOD') {
             putToDiscard(card, `${player.name} 從備用牌抽到道具牌【${card.n}】，直接棄掉`);
             continue; // 道具牌棄掉繼續抽
         }
-        log(`📦 ${player.name} 牌庫已空，從備用牌抽了一張牌。`, 'sys');
+        log(`📦 ${player.name} 牌庫已空，從備用牌抽了 1 張牌補回（備用牌剩 ${state.reserves.length} 張）。`, 'sys');
         return card;
     }
     log(`📦 ${player.name} 牌庫與備用牌皆空，無法補抽。`, 'sys');
@@ -601,7 +601,7 @@ function newGame(specs, opts) {
     state = {
         match,
         players: [], deck: [], discard: [], centerCards: [], centerTouched: [[], [], []], reserves: [],
-        currentTurn: 0, turnNo: 0, gameOver: false, winners: [], extraTurn: false,
+        currentTurn: 0, turnNo: 0, gameOver: false, winners: [], extraTurn: false, reserveDrawOk: false,
         phase: 'DRAW', prompt: null, pendingSlot: null, skipFrankensteinOnce: false,
         initialDeckSize: 0, log: [], unported: []
     };
@@ -620,7 +620,7 @@ function newGame(specs, opts) {
     const blood = { ...SPECIALS.BLOOD, uid: 'blood' };
     shuffle(deck);
     state.centerCards = [vampire, { ...SPECIALS.RED_JOKER, uid: 'red-joker' }, { ...SPECIALS.BLUE_JOKER, uid: 'blue-joker' }];
-    state.reserves = [deck.pop(), deck.pop()];
+    state.reserves = Array.from({ length: Math.max(0, specs.length - 1) }, () => deck.pop()); // 備用牌數 = 玩家數 - 1
     const n = deck.length, base = Math.floor(n / 3), rem = n % 3;
     // 除不盡時餘數優先加到最後 1/3（bot），其次中間 1/3（mid）：餘1 → base,base,base+1；餘2 → base,base+1,base+1
     const midLen = base + (rem === 2 ? 1 : 0);
@@ -646,7 +646,7 @@ function newGame(specs, opts) {
 function beginTurn() {
     if (state.gameOver) return;
     state.turnNo++;
-    if (state.deck.length === 0) { settleDeckEmpty(); return; }
+    if (state.deck.length === 0 && !(state.reserveDrawOk && state.reserves.length > 0)) { settleDeckEmpty(); return; }
     const p = cur();
     if (p.immune) { p.immune = false; log(`🛡️ ${p.name} 的【石像鬼】免疫效果結束。`, 'sys'); }
     state.phase = 'DRAW';
@@ -660,8 +660,8 @@ function endTurn() {
     advanceTurn();
 }
 function advanceTurn() {
-    if (!state.extraTurn) state.currentTurn = (state.currentTurn + 1) % state.players.length;
-    else { log(`✨ ${cur().name} 獲得額外回合！`, 'win'); state.extraTurn = false; }
+    if (!state.extraTurn) { state.currentTurn = (state.currentTurn + 1) % state.players.length; state.reserveDrawOk = false; }
+    else { log(`✨ ${cur().name} 獲得額外回合！`, 'win'); state.extraTurn = false; state.reserveDrawOk = true; } // 額外回合：牌庫為 0 時可抽 1 張備用牌補回
     beginTurn();
 }
 // 小局結束：累計勝場，先達 target 勝者贏得整場比賽
@@ -746,16 +746,20 @@ function aiBestGhostMove(p) {
 }
 function finishSettlement() {
     let best = -1, winner = null; const texts = [];
+    const rows = []; // 給介面「最終比點動畫」用的結構化資料
+    const slim = c => ({ id: c.id, n: c.n, v: c.v || 0, suit: c.suit, uid: c.uid });
     state.players.forEach(p => {
         const baseFront = p.front.reduce((s, c) => s + (c.v || 0), 0);
         const alien = p.hand.some(c => c.id === 'ALIEN') ? p.front.length * 2 : 0;
         const hand = p.hand.reduce((s, c) => s + (c.v || 0), 0);
         const total = baseFront + alien + hand;
+        rows.push({ id: p.id, name: p.name, fronts: p.front.map(slim), alien, hand: p.hand.map(slim), total });
         texts.push(`${p.name}：面前 ${baseFront}${alien ? ` + 外星人加成 ${alien}` : ''} + 手牌 ${hand} = ${total} 點`);
         if (total > best) { best = total; winner = p; }
     });
     log('🏆 結算全場總點數 (面前+手牌)：', 'win'); log(`📊 ${texts.join(' | ')}`, 'sys');
     if (winner) declareWinner(winner, `${winner.name} 總點數是 ${best}，獲得勝利！`);
+    state.settlement = { rows, winnerIds: (state.winners || []).slice() };
 }
 
 // ---------- 玩家動作 ----------
@@ -775,16 +779,33 @@ function act(s, pid, a) {
     }
     return err('未知動作');
 }
+// 額外回合＋牌庫為 0：抽 1 張備用牌補回（之後打出一張牌，才進入最終結算）
+function drawReserveForExtraTurn(p) {
+    while (state.reserves.length > 0) {
+        const card = state.reserves.pop();
+        if (card.id === 'PUMPKIN' || card.id === 'MOON' || card.id === 'BLOOD') { putToDiscard(card, `${p.name} 從備用牌抽到道具牌【${card.n}】，直接棄掉`); if (state.gameOver) return ok(); continue; }
+        state.reserveDrawOk = false;
+        p.hand.push(card);
+        log(`📦 ${p.name} 獲得額外回合且牌庫已空，從備用牌抽了 1 張牌補回（備用牌剩 ${state.reserves.length} 張）。`, 'sys');
+        state.phase = 'PLAY';
+        return ok();
+    }
+    settleDeckEmpty(); return ok();
+}
 function doDraw() {
     if (state.phase !== 'DRAW') return err('現在不能抽牌');
     const p = cur();
+    if (state.deck.length === 0 && state.reserveDrawOk && state.reserves.length > 0) { logSys(`${p.name} 進行抽牌。`); return drawReserveForExtraTurn(p); }
     logSys(`${p.name} 進行抽牌。`);
     const res = drawCardLogic(p, true);
     if (state.gameOver) return ok();
     if (!res) { if (state.deck.length === 0) settleDeckEmpty(); return ok(); }
     if (res.isItem) {
         state.extraTurn = false; // 道具牌：同一玩家重新抽牌（沿用原版行為）
-        if (state.deck.length === 0) { settleDeckEmpty(); return ok(); }
+        if (state.deck.length === 0) {
+            if (state.reserves.length > 0) { state.reserveDrawOk = true; state.phase = 'DRAW'; return ok(); } // 額外抽牌：牌庫空時改抽備用牌
+            settleDeckEmpty(); return ok();
+        }
         state.phase = 'DRAW'; return ok();
     }
     p.hand.push(res.card);
@@ -1013,10 +1034,10 @@ const EFFECTS = {
         log(`🦁 ${p.name} 的【奇美拉】選擇了【${t.name}】。`, 'chimera'); executeChimeraEffect(t); return false;
     },
     SUCCUBUS(p) {
-        const targets = state.players.filter(x => x.id !== p.id && !x.immune);
-        if (targets.length === 0) { log(`💖 ${p.name} 的【魅魔】找不到目標（全員免疫）。`, 'sys'); return false; }
+        // 可選自己（＝不綁定，自己可正常獲勝）；其他人需未免疫
+        const targets = state.players.filter(x => x.id === p.id || !x.immune);
         if (!p.isAI) return openPrompt({ type: 'succubusTarget', playerId: p.id, targets: targets.map(t => t.id) });
-        const t = aiSuccubusTarget(p, targets); p.bindTo = t.id;
+        const t = aiSuccubusTarget(p, targets); p.bindTo = t.id === p.id ? null : t.id;
         log(`💖 ${p.name} 的【魅魔】秘密選擇了一位玩家（只有魅魔使用者知道）。`, 'succubus'); return false;
     },
     MINOTAUR(p) {
@@ -1189,7 +1210,7 @@ const PROMPTS = {
     },
     succubusTarget(a, pr, p) {
         if (!pr.targets.includes(a.targetId)) return { error: '目標無效' };
-        p.bindTo = a.targetId;
+        p.bindTo = a.targetId === p.id ? null : a.targetId; // 選自己＝不綁定
         log(`💖 ${p.name} 的【魅魔】秘密選擇了一位玩家（只有魅魔使用者知道）。`, 'succubus'); return {};
     },
     minotaurTarget(a, pr, p) {
@@ -1336,6 +1357,7 @@ function aiSuccubusTarget(p, targets) {
     let best = targets[0], bs = -Infinity;
     targets.forEach(t => {
         let sc = getTenpaiInfo(t).length * 30 + t.front.length * 3 + t.front.reduce((a, c) => a + (c.v || 0), 0) * 0.15 + rand();
+        if (t.id === p.id) sc += 12; // 選自己＝不綁定、自己照常爭勝：自己叫糊或面前強時比押別人更划算
         if (t.hand.some(c => c.id === 'WEREWOLF') && aiMoonPending()) sc += 25;
         if (t.hand.some(c => c.id === 'CTHULHU')) sc += 8;
         if (sc > bs) { bs = sc; best = t; }
@@ -1441,7 +1463,7 @@ function aiStep(s) {
             if (slot === -1 && rand() < 0.25) slot = slots[Math.floor(rand() * slots.length)];
             if (slot !== -1) return act(s, pid, { type: 'take', slot });
         }
-        if (p.hand.length < 2 && s.deck.length > 0) return act(s, pid, { type: 'draw' });
+        if (p.hand.length < 2 && (s.deck.length > 0 || (s.reserveDrawOk && s.reserves.length > 0))) return act(s, pid, { type: 'draw' });
     }
     if (p.hand.length === 0) { endTurn(); return ok(); }
     if (hasPK) {

@@ -134,6 +134,14 @@
   @keyframes deckWarn { 0%,100% { box-shadow: 0 0 0 0 rgba(244,63,94,0); border-color: rgba(245,158,11,.5); } 50% { box-shadow: 0 0 10px 3px rgba(244,63,94,.95); border-color: rgba(244,63,94,1); background-color: rgba(127,29,29,.85); } }
   .deck-warn { animation: deckWarn .8s ease-in-out infinite; }
 
+  /* 最終比點動畫 */
+  @keyframes settlePop { 0% { transform: scale(.3); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+  .settle-pop { display: inline-flex; animation: settlePop .38s ease-out; }
+  @keyframes settleFlip { 0% { transform: perspective(300px) rotateY(90deg); } 100% { transform: perspective(300px) rotateY(0deg); } }
+  .settle-flip { animation: settleFlip .5s ease-out; }
+  .settle-win { transform: scale(1.05); border-color: #fbbf24 !important; box-shadow: 0 0 18px 4px rgba(251,191,36,.8); }
+  .settle-lose { opacity: .45; transform: scale(.96); }
+
   /* ── 生效中：純光暈（無實線邊、無 outline）── */
   .turn-blink-g { animation: turnBlinkG 1.4s ease-in-out infinite; }
 
