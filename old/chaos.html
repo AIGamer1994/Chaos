@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>群魔 Chaos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 牌桌 A–F 區介面設定（複製自狼月 theme.js，另加 UI.CH 群魔專用樣式）：改外觀請編輯 chaos-theme.js -->
+    <script src="chaos-theme.js"></script>
+    <!-- 群魔規則引擎（純規則，無畫面）：改規則請編輯 chaos-engine.js -->
+    <script src="chaos-engine.js"></script>
+    <style>
+        * { -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; touch-action: manipulation; }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+        html, body, #root { height: 100%; margin: 0; background: #020617; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const E = window.ChaosEngine;
+const VERSION = '群魔 v0.1.0';
+const STAGE_W = 405, STAGE_H = 720;
+const HUMAN = 0;
+const NAMES = ['你', '青鸞', '白澤', '玄武', '朱雀', '麒麟'];
+const GRADS = ['from-emerald-400 to-teal-600', 'from-sky-400 to-blue-600', 'from-rose-400 to-red-600', 'from-amber-300 to-orange-600', 'from-violet-400 to-purple-600', 'from-pink-400 to-fuchsia-600'];
+const GUIDE = {};
+Object.values(E.CARD_GUIDE).forEach(g => { GUIDE[g.id] = g; });
+const sym = c => (c && E.SUIT_SYMBOLS[c.suit]) || '';
+const suitCls = c => (c.suit === 'heart' || c.suit === 'diamond' || c.id === 'RED_JOKER') ? UI.CH.red
+    : (c.suit === 'spade' || c.suit === 'club' || c.id === 'BLUE_JOKER') ? UI.CH.blue : UI.CH.neutral;
+const isJoker = c => c.id === 'RED_JOKER' || c.id === 'BLUE_JOKER';
+const targetable = p => p.hand.filter(c => !isJoker(c));
+const frontSum = p => p.front.reduce((s, c) => s + (c.v || 0), 0);
+
+function Chip({ c, onClick }) {
+    return (
+        <button onClick={onClick} className={UI.CH.chip}>
+            <span className={'gothic-num ' + UI.CH.chipNum}>{c.v}</span>
+            <span className={suitCls(c)}>{sym(c)}</span>
+            <span className={UI.CH.chipName}>{c.n}</span>
+        </button>
+    );
+}
+function Modal({ title, onClose, children }) {
+    return (
+        <div className={UI.CH.m01} onClick={onClose}>
+            <div className={UI.CH.m02} onClick={e => e.stopPropagation()}>
+                {title && <div className={UI.CH.m03}>{title}</div>}
+                {children}
+                {onClose && <button className={UI.CH.btnGhost + ' mt-2 w-full'} onClick={onClose}>關閉</button>}
+            </div>
+        </div>
+    );
+}
+function CardDetail({ c, onClose }) {
+    const gd = GUIDE[c.id] || {};
+    return (
+        <Modal title={`${sym(c)} ${c.n}　點數 ${c.v}`} onClose={onClose}>
+            {gd.victory && <div className={UI.CH.m04}><b className="text-amber-300">勝利條件：</b>{gd.victory}</div>}
+            {gd.effect && <div className={UI.CH.m04}><b className="text-fuchsia-300">效果：</b>{gd.effect}</div>}
+        </Modal>
+    );
+}
+function NumPad({ value, onChange }) {
+    return (
+        <div className={UI.CH.m05}>
+            {Array.from({ length: 14 }, (_, i) => (
+                <button key={i} className={UI.CH.numBtn({ on: value === i })} onClick={() => onChange(i)}>{i}</button>
+            ))}
+        </div>
+    );
+}
+function PlayerBtns({ g, ids, onPick }) {
+    return (
+        <div className={UI.CH.m05}>
+            {ids.map(id => <button key={id} className={UI.CH.btnTarget} onClick={() => onPick(id)}>{g.players[id].name}</button>)}
+        </div>
+    );
+}
+function FrontPicker({ g, entries, onPick }) { // entries: [{playerId, index}]
+    const ids = [...new Set(entries.map(e => e.playerId))];
+    return (
+        <div>
+            {ids.map(pid => (
+                <div key={pid}>
+                    <div className={UI.CH.sectionTitle}>{g.players[pid].name} 面前</div>
+                    <div className={UI.CH.m05}>
+                        {entries.filter(e => e.playerId === pid).map(e => <Chip key={e.index} c={g.players[pid].front[e.index]} onClick={() => onPick(pid, e.index)} />)}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+function SkeletonDialog({ g, pr, ans }) {
+    const [t, setT] = useState(pr.targets[0]);
+    const [n, setN] = useState(null);
+    return (
+        <Modal title="骷髏的猜測">
+            <div className={UI.CH.m04}>選一位玩家，猜他的手牌點數 (0–13)。猜中就把他的手牌搶到自己面前。</div>
+            <PlayerBtns g={g} ids={pr.targets} onPick={setT} />
+            <div className={UI.CH.m04}>目標：<b className="text-sky-300">{g.players[t].name}</b>　猜：<b className="text-amber-300">{n === null ? '—' : n}</b></div>
+            <NumPad value={n} onChange={setN} />
+            <button className={UI.CH.btn + ' w-full'} disabled={n === null} onClick={() => ans({ targetId: t, guess: n })}>確定</button>
+        </Modal>
+    );
+}
+function HellLordDialog({ g, pr, ans }) {
+    const [t1, setT1] = useState(pr.targets[0]);
+    const [t2, setT2] = useState(pr.targets[1]);
+    const [n1, setN1] = useState(null);
+    const [n2, setN2] = useState(null);
+    const ok = t1 !== t2 && n1 !== null && n2 !== null;
+    return (
+        <Modal title="地獄領主的猜測">
+            <div className={UI.CH.m04}>選兩位不同玩家，各猜一次手牌點數 (0–13){pr.canWin ? '；兩次都猜中即獲勝。' : '。'}</div>
+            <div className={UI.CH.sectionTitle}>第一位</div>
+            <PlayerBtns g={g} ids={pr.targets} onPick={setT1} />
+            <div className={UI.CH.m04}>{g.players[t1].name}：<b className="text-amber-300">{n1 === null ? '—' : n1}</b></div>
+            <NumPad value={n1} onChange={setN1} />
+            <div className={UI.CH.sectionTitle}>第二位</div>
+            <PlayerBtns g={g} ids={pr.targets} onPick={setT2} />
+            <div className={UI.CH.m04}>{g.players[t2].name}：<b className="text-amber-300">{n2 === null ? '—' : n2}</b></div>
+            <NumPad value={n2} onChange={setN2} />
+            {t1 === t2 && <div className={UI.CH.toast}>兩次必須選不同玩家</div>}
+            <button className={UI.CH.btn + ' w-full'} disabled={!ok} onClick={() => ans({ guesses: [{ targetId: t1, value: n1 }, { targetId: t2, value: n2 }] })}>確定</button>
+        </Modal>
+    );
+}
+function PromptDialog({ g, pr, dispatch }) {
+    const ans = o => dispatch({ type: 'answer', ...o });
+    const me = g.players[HUMAN];
+    switch (pr.type) {
+        case 'frankenstein':
+            return (<Modal title="科學怪人"><div className={UI.CH.m04}>回合結束。要棄掉面前的【科學怪人】來獲得額外回合嗎？</div>
+                <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={() => ans({ discard: true })}>棄掉，額外回合</button><button className={UI.CH.btnGhost} onClick={() => ans({ discard: false })}>保留</button></div></Modal>);
+        case 'frankensteinCopy':
+            return (<Modal title="科學怪人（小丑複製）"><div className={UI.CH.m04}>是否發動科學怪人效果，獲得額外回合？</div>
+                <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={() => ans({ take: true })}>發動</button><button className={UI.CH.btnGhost} onClick={() => ans({ take: false })}>不發動</button></div></Modal>);
+        case 'extremeDiscard':
+            return (<Modal title={`【${pr.sourceName}】：選一張棄掉`}><div className={UI.CH.m04}>你面前有多張同值的{pr.mode === 'max' ? '最大' : '最小'}牌，選一張棄掉。</div>
+                <div className={UI.CH.m05}>{pr.options.map(i => <Chip key={i} c={me.front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
+        case 'compareTarget':
+            return (<Modal title={pr.cardId === 'TROLL' ? '巨魔：比大' : '木乃伊：比小'}><div className={UI.CH.m04}>選一位玩家與你比手牌，{pr.cardId === 'TROLL' ? '小者輸' : '大者輸'}（輸家把手牌放到贏家面前並補抽 1 張）。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'zombieTarget':
+            return (<Modal title="喪屍的啃咬"><div className={UI.CH.m04}>選一位玩家（可選自己），棄掉他面前的一張牌；選自己時不能棄剛打出的牌。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'zombieCard':
+            return (<Modal title="喪屍：選要棄的牌"><div className={UI.CH.sectionTitle}>{g.players[pr.targetId].name} 面前</div>
+                <div className={UI.CH.m05}>{pr.options.map(i => <Chip key={i} c={g.players[pr.targetId].front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
+        case 'sandwormPick':
+            return (<Modal title="沙蟲的掠奪"><div className={UI.CH.m04}>選一張其他玩家面前的牌，奪到自己面前。</div>
+                <FrontPicker g={g} entries={pr.targets.flatMap(pid => g.players[pid].front.map((_, index) => ({ playerId: pid, index })))} onPick={(pid, index) => ans({ targetId: pid, index })} /></Modal>);
+        case 'necroPick':
+            return (<Modal title="死靈法師的召喚"><div className={UI.CH.m04}>選一張棄牌堆的牌，放到自己面前。</div>
+                <div className={UI.CH.m05}>{g.discard.map((c, i) => <Chip key={i} c={c} onClick={() => ans({ index: i })} />)}</div></Modal>);
+        case 'skeletonGuess': return <SkeletonDialog g={g} pr={pr} ans={ans} />;
+        case 'hellLord': return <HellLordDialog g={g} pr={pr} ans={ans} />;
+        case 'seaMonster': {
+            const top = g.deck[g.deck.length - 1];
+            return (<Modal title="海怪查看牌堆頂"><div className={UI.CH.m04}>牌堆頂是：</div>
+                <div className={UI.CH.m05}>{top && <Chip c={top} />}</div>
+                <div className={UI.CH.m04}>要與一張手牌交換嗎？（你的手牌會放到牌堆頂）</div>
+                <div className={UI.CH.m05}>{me.hand.map((c, i) => <button key={i} className={UI.CH.btnTarget} onClick={() => ans({ handIndex: i })}>換掉 {sym(c)}{c.n}({c.v})</button>)}
+                    <button className={UI.CH.btnGhost} onClick={() => ans({ handIndex: -1 })}>不交換</button></div></Modal>);
+        }
+        case 'chimeraTarget':
+            return (<Modal title="奇美拉的凝視"><div className={UI.CH.m04}>選一位玩家（可選自己），他必須把手牌放到面前，並從牌庫重抽 1 張。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'succubusTarget':
+            return (<Modal title="魅魔的秘密選擇"><div className={UI.CH.m04}>選一位玩家；他獲勝時，你也一起獲勝（但你自己觸發勝利條件時無效）。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'minotaurTarget':
+            return (<Modal title="牛頭人的偷窺"><div className={UI.CH.m04}>選一位玩家查看手牌，之後可選擇是否與他交換，並獲得額外回合。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'minotaurSwap': {
+            const t = g.players[pr.targetId], mine = targetable(me)[0], theirs = targetable(t)[0];
+            return (<Modal title="是否交換？">
+                <div className={UI.CH.m05}>
+                    <div className="text-center"><div className={UI.CH.m04}>你的手牌</div>{mine ? <Chip c={mine} /> : <span className={UI.CH.oppEmpty}>只有小丑</span>}</div>
+                    <div className="text-center"><div className={UI.CH.m04}>{t.name}</div>{theirs && <Chip c={theirs} />}</div>
+                </div>
+                <div className={UI.CH.m05}>{pr.canSwap && <button className={UI.CH.btn} onClick={() => ans({ swap: true })}>交換</button>}
+                    <button className={UI.CH.btnGhost} onClick={() => ans({ swap: false })}>不交換</button></div></Modal>);
+        }
+        case 'jokerPick':
+            return (<Modal title="小丑的效果"><div className={UI.CH.m04}>選一張同色牌，發動它的效果（先列其他玩家）。</div>
+                <FrontPicker g={g} entries={[...pr.options].sort((a, b) => (a.playerId === HUMAN) - (b.playerId === HUMAN))} onPick={(pid, index) => ans({ targetId: pid, index })} /></Modal>);
+        case 'ghostMove':
+        case 'ghostSettle': {
+            const entries = g.players.flatMap(p => p.front.map((_, index) => ({ playerId: p.id, index })));
+            return (<Modal title="幽靈：移動一張牌"><div className={UI.CH.m04}>選任一玩家面前的一張牌，移到自己面前。</div>
+                <FrontPicker g={g} entries={entries} onPick={(pid, index) => ans({ targetId: pid, index })} />
+                {pr.type === 'ghostSettle' && <button className={UI.CH.btnGhost + ' w-full mt-2'} onClick={() => ans({ skip: true })}>放棄移動</button>}</Modal>);
+        }
+        default:
+            return <Modal title="等待回應"><div className={UI.CH.m04}>{pr.type}</div></Modal>;
+    }
+}
+function CenterModal({ g, pick, onTake, onClose }) {
+    const me = g.players[HUMAN];
+    return (
+        <Modal title={pick ? '拿一張暗牌' : '暗牌與備用牌'} onClose={onClose}>
+            <div className={UI.CH.m04}>你只看得到自己放回去的牌（或夢魘看過且沒被換過的牌）。</div>
+            <div className={UI.CH.sectionTitle}>暗牌</div>
+            <div className={UI.CH.m05}>
+                {g.centerCards.map((c, i) => {
+                    if (!c) return <span key={i} className={UI.CH.chipBack}>（空）</span>;
+                    const known = me.knownCenter[i] === c.uid;
+                    const inner = known ? <Chip c={c} /> : <span className={UI.CH.chipBack}>？</span>;
+                    return pick ? <button key={i} className={UI.CH.btnTarget} onClick={() => onTake(i)}>第 {i + 1} 張 {known ? `${c.n}` : '？'}</button> : <span key={i}>{inner}</span>;
+                })}
+            </div>
+            <div className={UI.CH.sectionTitle}>備用牌</div>
+            <div className={UI.CH.m05}>
+                {g.reserves.map((c, i) => c && (me.knownReserves[i] === c.uid ? <Chip key={i} c={c} /> : <span key={i} className={UI.CH.chipBack}>？</span>))}
+            </div>
+        </Modal>
+    );
+}
+function RulesModal({ onClose }) {
+    return (
+        <Modal title="規則・牌表" onClose={onClose}>
+            {Object.values(E.CARD_GUIDE).map(gd => (
+                <div key={gd.id} className="mb-2 border-b border-slate-700/60 pb-1.5">
+                    <div className="text-[12px] font-black text-amber-200">{gd.n}</div>
+                    {gd.victory && <div className="text-[10px] text-slate-300"><b className="text-amber-300">勝：</b>{gd.victory}</div>}
+                    {gd.effect && <div className="text-[10px] text-slate-300"><b className="text-fuchsia-300">效：</b>{gd.effect}</div>}
+                </div>
+            ))}
+        </Modal>
+    );
+}
+function LogModal({ g, onClose }) {
+    return (
+        <Modal title="紀錄" onClose={onClose}>
+            {g.log.slice(-120).reverse().map((l, i) => <div key={i} className={UI.CH.logLine({ type: l.type })}>{l.msg}</div>)}
+        </Modal>
+    );
+}
+function DiscardModal({ g, onClose }) {
+    return (
+        <Modal title={`棄牌堆（${g.discard.length}）`} onClose={onClose}>
+            <div className={UI.CH.m05}>{g.discard.length === 0 ? <span className={UI.CH.oppEmpty}>（空）</span> : g.discard.map((c, i) => <Chip key={i} c={c} />)}</div>
+        </Modal>
+    );
+}
+function GameOverModal({ g, onNew, onClose }) {
+    const win = g.winners.map(i => g.players[i].name);
+    return (
+        <Modal title={win.length ? `🏆 勝者：${win.join('、')}` : '🏆 無人勝利'}>
+            <div className={UI.CH.m04}>{[...g.log].reverse().find(l => l.type === 'win')?.msg}</div>
+            {g.players.map(p => (
+                <div key={p.id} className="mb-1.5 border-b border-slate-700/60 pb-1">
+                    <div className="text-[11px] font-black text-sky-300">{p.name}{g.winners.includes(p.id) ? ' 🏆' : ''}　面前 {frontSum(p)} 點</div>
+                    <div className={UI.CH.m05 + ' !my-0.5 !justify-start'}>
+                        {p.front.map((c, i) => <Chip key={'f' + i} c={c} />)}
+                        {p.hand.length > 0 && <span className="text-[10px] text-slate-500 mx-1">手牌：</span>}
+                        {p.hand.map((c, i) => <Chip key={'h' + i} c={c} />)}
+                    </div>
+                </div>
+            ))}
+            <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={onNew}>再來一局</button><button className={UI.CH.btnGhost} onClick={onClose}>看牌桌</button></div>
+        </Modal>
+    );
+}
+
+function Table({ g, dispatch, onNew, speed, setSpeed, toast, initialUi }) {
+    const [ui, setUi] = useState({ modal: null, sel: null, showBroadcast: true, overDismissed: false, ...(initialUi || {}) });
+    const patch = o => setUi(u => ({ ...u, ...o }));
+    const me = g.players[HUMAN];
+    const noPrompt = !g.prompt && !g.gameOver;
+    const myTurn = g.currentTurn === HUMAN && noPrompt;
+    const hasPK = me.hand.some(c => c.id === 'PUMPKIN_KING');
+    const canDraw = myTurn && g.phase === 'DRAW' && me.hand.length < 2 && g.deck.length > 0;
+    const canTake = myTurn && g.phase === 'DRAW' && me.hand.length === 1 && !hasPK && g.centerCards.some(Boolean);
+    const canPlay = myTurn && (g.phase === 'PLAY' || (g.phase === 'DRAW' && me.hand.length >= 2));
+    const returning = myTurn && g.phase === 'RETURN';
+    const selCard = ui.sel !== null ? me.hand[ui.sel] : null;
+    const act = a => { patch({ sel: null }); return dispatch(a); };
+
+    const onPlay = () => {
+        if (!selCard) return;
+        if (selCard.id === 'PUMPKIN_KING') {
+            const comps = me.hand.map((c, i) => ({ c, i })).filter(x => x.c.id === 'SKELETON' || x.c.id === 'HEADLESS');
+            if (comps.length) { patch({ modal: { type: 'pk', comps } }); return; }
+        }
+        act({ type: 'play', handIndex: ui.sel });
+    };
+    const mainBtn = returning
+        ? { label: '放回暗牌', on: !!selCard && selCard.id !== 'PUMPKIN_KING', run: () => act({ type: 'return', handIndex: ui.sel }) }
+        : canPlay ? { label: '出牌', on: !!selCard, run: onPlay }
+        : { label: '抽牌', on: canDraw, run: () => act({ type: 'draw' }) };
+
+    const hint = g.gameOver ? '遊戲結束'
+        : g.prompt ? (g.prompt.playerId === HUMAN ? '請在彈窗中做出選擇' : `等待 ${g.players[g.prompt.playerId].name} 回應…`)
+        : g.currentTurn !== HUMAN ? `${g.players[g.currentTurn].name} 思考中…`
+        : returning ? '選一張手牌，放回剛拿的暗牌位置'
+        : canPlay ? (hasPK ? '你有南瓜王：必須出南瓜王／骷髏／無頭騎士' : '選一張手牌打出')
+        : '抽一張牌，或拿一張暗牌換';
+
+    const last = g.log.filter(l => l.type !== 'discard');
+    const l1 = last[last.length - 1], l2 = last[last.length - 2];
+    const opponents = g.players.filter(p => p.id !== HUMAN);
+    const n = me.front.length, step = n <= 1 ? 0 : Math.min(54, Math.floor((STAGE_W - 24 - 72) / (n - 1)));
+    const m = ui.modal;
+
+    return (
+        <>
+            <header className={UI.A.a01}>
+                <div className={UI.A.a02}><span className={UI.A.a03}>{VERSION}</span></div>
+                <div className={UI.A.a04}>
+                    <button onClick={onNew} className={UI.A.a05}><i className={UI.A.a06}></i><span>新局</span></button>
+                    <button onClick={() => patch({ showBroadcast: !ui.showBroadcast })} className={UI.A.a07({ showBroadcast: ui.showBroadcast })}>動態</button>
+                    <button onClick={() => setSpeed(speed === 1 ? 2 : speed === 2 ? 0.5 : 1)} className={UI.A.a08({ speed, v: speed })}>{speed}x</button>
+                    <button onClick={() => patch({ modal: { type: 'rules' } })} className={UI.A.a09}><i className={UI.A.a10}></i><span className={UI.A.a11}>規則</span></button>
+                    <button onClick={() => patch({ modal: { type: 'log' } })} className={UI.A.a12}><i className={UI.A.a13}></i><span className={UI.A.a14}>紀錄</span></button>
+                </div>
+            </header>
+
+            {ui.showBroadcast && (
+                <div className={UI.B.b01}>
+                    <div className={UI.B.b02({ broadcastEvent: null })}>
+                        <div className={UI.B.b03}>
+                            <div className={UI.B.b04}><span className={UI.B.b05}></span><span className={UI.B.b06}>{l1 ? l1.msg : '遊戲開始'}</span></div>
+                            {l2 && <div className={UI.B.b12}>{l2.msg}</div>}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className={UI.C.c01}>
+                <button className={UI.C.c02} onClick={() => patch({ modal: { type: 'discard' } })}>
+                    <i className="fa-solid fa-trash-can text-amber-400"></i><span className={UI.C.c04}>棄牌</span><span className={UI.C.c05}>{g.discard.length}</span>
+                </button>
+                <div className={UI.C.c06}>
+                    <div className={UI.C.c07}><i className={UI.C.c08}></i><span className={UI.C.c09}>備用 <span className={UI.C.c10}>{g.reserves.filter(Boolean).length}</span></span></div>
+                    <button className={UI.C.c11} onClick={() => patch({ modal: { type: 'center', pick: false } })}>
+                        <i className={UI.C.c12}></i><span className={UI.C.c13}>暗牌 <span className={UI.C.c14}>{g.centerCards.filter(Boolean).length}</span></span>
+                    </button>
+                    <div className={UI.C.c15 + ' cursor-default'}><i className={UI.C.c16}></i><span className={UI.C.c17}>牌庫 <span className={UI.C.c18}>{g.deck.length}</span></span></div>
+                </div>
+            </div>
+
+            <section className={UI.D.d01}>
+                {opponents.map(p => {
+                    const isTurn = g.currentTurn === p.id && !g.gameOver;
+                    return (
+                        <div key={p.id} className={UI.D.d02({ isDead: false, isTurn })}>
+                            <div className={UI.D.d03}>
+                                {p.immune && <span className={UI.D.d08}><i className={UI.D.d09}></i>免疫</span>}
+                                <span className="text-slate-300"><i className="fa-solid fa-hand"></i> {p.hand.length}</span>
+                            </div>
+                            <div className={UI.D.d14({ player: { gradient: GRADS[p.id % 6] } })}>
+                                <img src={window.AVATAR_URL(p.id)} className={UI.D.d15} alt="" onError={e => { e.target.style.visibility = 'hidden'; }} />
+                            </div>
+                            <span className={UI.D.d16({ isTurn })}>{p.name}</span>
+                        </div>
+                    );
+                })}
+            </section>
+
+            <main className={UI.E.e01}>
+                <div className={UI.E.e02}></div>
+                <div className={UI.E.e05}>
+                    {opponents.map(p => (
+                        <div key={p.id} className={UI.E.e06}>
+                            <div className={UI.CH.oppCol}>
+                                {p.front.length === 0 ? <span className={UI.CH.oppEmpty}>—</span>
+                                    : p.front.map((c, i) => <Chip key={c.uid || i} c={c} onClick={() => patch({ modal: { type: 'card', c } })} />)}
+                            </div>
+                            {p.front.length > 0 && <div className="text-[9px] text-slate-400 mt-0.5">共 {frontSum(p)} 點</div>}
+                        </div>
+                    ))}
+                </div>
+                <div className={UI.E.e15}>
+                    <div>
+                        <div className={UI.CH.hint}>{hint}</div>
+                        <div className={UI.CH.hintSub}>{myTurn && g.extraTurn ? '（額外回合）' : ''}</div>
+                        {toast && <div className={UI.CH.toast}>{toast}</div>}
+                    </div>
+                </div>
+                <div className={UI.E.e51}></div>
+                <div className={UI.E.e52}>
+                    <div className={UI.E.e53} style={{ width: 72 + (n > 0 ? (n - 1) * step : 0), height: n ? 96 : 0 }}>
+                        {me.front.map((c, i) => (
+                            <button key={c.uid || i} className={UI.E.e54({ active: false })} style={{ left: i * step, width: 72, height: 96, zIndex: i }}
+                                onClick={() => patch({ modal: { type: 'card', c } })}>
+                                <span className={UI.E.e55}>{c.v}</span>
+                                <span className={'text-2xl ' + suitCls(c)}>{sym(c) || '✦'}</span>
+                                <span className={UI.E.e57}>{c.n}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </main>
+
+            <footer className={UI.F.f01}>
+                {g.gameOver && ui.overDismissed && (
+                    <div className={UI.F.f02}><button onClick={onNew} className={UI.F.f03}><i className={UI.F.f04}></i><span>再來一局</span></button></div>
+                )}
+                <div className="absolute left-1.5 top-1.5 z-20">
+                    <div className={UI.F.f05({ isDead: false, isTurn: g.currentTurn === HUMAN && !g.gameOver })}>
+                        <div className={UI.F.f06({ me: { gradient: GRADS[0] } })}>
+                            <img src={window.AVATAR_URL(0)} className={UI.F.f07} alt="" onError={e => { e.target.style.visibility = 'hidden'; }} />
+                        </div>
+                        <span className={UI.F.f09({ isTurn: g.currentTurn === HUMAN })}>{me.name}</span>
+                    </div>
+                    {me.immune && <div className="text-[9px] text-cyan-300 text-center"><i className="fa-solid fa-shield-halved"></i> 免疫</div>}
+                </div>
+                <div className={UI.F.f37}>
+                    <div className={UI.F.f38}>
+                        {me.hand.length === 0 && <div className={UI.F.f47}>無手牌</div>}
+                        {me.hand.map((c, i) => {
+                            const isSelected = ui.sel === i;
+                            return (
+                                <div key={c.uid} className={UI.F.f39({ card: c, dragGhost: null, drawAnim: null, isSelected })}
+                                    onClick={() => (canPlay || returning) && patch({ sel: isSelected ? null : i })}>
+                                    <button className={UI.CH.infoDot} onClick={e => { e.stopPropagation(); patch({ modal: { type: 'card', c } }); }}>i</button>
+                                    <div className={UI.F.f40}><span className={UI.F.f41({ isSelected })}>{c.v}</span></div>
+                                    <div className={UI.F.f42}><span className={'text-5xl ' + suitCls(c)}>{sym(c) || '✦'}</span></div>
+                                    <div className={UI.F.f45}>{c.n}</div>
+                                    <div className={UI.F.f44}><div className={UI.F.f46}>{(GUIDE[c.id] || {}).effect || (GUIDE[c.id] || {}).victory || ''}</div></div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                <div className={UI.F.f62}>
+                    <button className={UI.CH.act({ enabled: mainBtn.on })} disabled={!mainBtn.on} onClick={mainBtn.run}>{mainBtn.label}</button>
+                    <button className={UI.CH.act({ enabled: canTake })} disabled={!canTake} onClick={() => patch({ modal: { type: 'center', pick: true } })}>拿暗牌</button>
+                </div>
+            </footer>
+
+            {m && m.type === 'rules' && <RulesModal onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'log' && <LogModal g={g} onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'discard' && <DiscardModal g={g} onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'card' && <CardDetail c={m.c} onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'center' && <CenterModal g={g} pick={m.pick} onClose={() => patch({ modal: null })} onTake={i => { patch({ modal: null }); act({ type: 'take', slot: i }); }} />}
+            {m && m.type === 'pk' && (
+                <Modal title="南瓜王" onClose={() => patch({ modal: null })}>
+                    <div className={UI.CH.m04}>單獨打出南瓜王，或與骷髏／無頭騎士同時打出（南瓜出現後同時打出即獲勝）。</div>
+                    <div className={UI.CH.m05}>
+                        <button className={UI.CH.btnGhost} onClick={() => { patch({ modal: null }); act({ type: 'play', handIndex: ui.sel }); }}>單獨打出</button>
+                        {m.comps.map(x => <button key={x.i} className={UI.CH.btn} onClick={() => { patch({ modal: null }); act({ type: 'play', handIndex: ui.sel, companionIndex: x.i }); }}>與{x.c.n}同時打出</button>)}
+                    </div>
+                </Modal>
+            )}
+            {g.prompt && g.prompt.playerId === HUMAN && !g.gameOver && <PromptDialog g={g} pr={g.prompt} dispatch={dispatch} />}
+            {g.gameOver && !ui.overDismissed && <GameOverModal g={g} onNew={onNew} onClose={() => patch({ overDismissed: true })} />}
+        </>
+    );
+}
+
+function StartScreen({ onStart }) {
+    return (
+        <div className="absolute inset-0 z-[140] flex flex-col items-center justify-center bg-slate-950/85">
+            <div className={UI.CH.startTitle}>群魔</div>
+            <div className={UI.CH.startSub}>單機版：你 vs AI　選擇人數開始</div>
+            <div className="flex gap-2 mt-6">
+                {[3, 4, 5, 6].map(n => <button key={n} className={UI.CH.btn} onClick={() => onStart(n)}>{n} 人</button>)}
+            </div>
+        </div>
+    );
+}
+
+function App() {
+    const gameRef = useRef(null);
+    const [tick, setTick] = useState(0);
+    const [speed, setSpeed] = useState(1);
+    const [toast, setToast] = useState('');
+    const [gid, setGid] = useState(0);
+    const [scale, setScale] = useState(1);
+    const bump = () => setTick(t => t + 1);
+    useEffect(() => {
+        const f = () => setScale(Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H));
+        f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
+    }, []);
+    const start = n => {
+        setGid(x => x + 1);
+        gameRef.current = E.newGame(Array.from({ length: n }, (_, i) => ({ name: NAMES[i], isAI: i !== HUMAN })));
+        setToast(''); bump();
+    };
+    const dispatch = a => {
+        const r = E.act(gameRef.current, HUMAN, a);
+        if (!r.ok) { setToast(r.error); setTimeout(() => setToast(''), 2200); } else setToast('');
+        bump(); return r;
+    };
+    useEffect(() => { // AI 與電腦座位的自動行動
+        const s = gameRef.current;
+        if (!s || s.gameOver) return;
+        const owner = s.prompt ? s.players[s.prompt.playerId] : s.players[s.currentTurn];
+        if (!owner.isAI) return;
+        const t = setTimeout(() => { const r = E.aiStep(s); if (!r.ok) { console.error('AI 錯誤：', r.error); return; } bump(); }, 750 / speed);
+        return () => clearTimeout(t);
+    }, [tick, speed]);
+    const g = gameRef.current;
+    return (
+        <div className={UI.root.r01}>
+            <div id="chaos-stage" className={UI.root.r02} style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: 'center center' }}>
+                {g ? <Table key={gid} g={g} dispatch={dispatch} onNew={() => { gameRef.current = null; bump(); }} speed={speed} setSpeed={setSpeed} toast={toast} />
+                    : <StartScreen onStart={start} />}
+            </div>
+        </div>
+    );
+}
+window.__Chaos = { App, Table };
+if (document.getElementById('root')) ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+    </script>
+</body>
+</html>
