@@ -277,7 +277,8 @@ function getTenpaiInfo(p, includeAlien = true) {
         if (hasBlood && frontValue === 0) tenpaiList.push('吸血鬼');
     }
 
-    if (includeAlien && !visibleTitles.has('外星人') && areOtherPlayersTenpai(p, true)) {
+    // 外星人叫糊：其他玩家都叫糊，而且自己沒有別的叫糊（只有「唯一沒叫糊」的那位玩家才會顯示叫外星人）
+    if (includeAlien && !visibleTitles.has('外星人') && tenpaiList.filter(n => n !== '美杜莎').length === 0 && areOtherPlayersTenpai(p, true)) {
         tenpaiList.push('外星人');
     }
 

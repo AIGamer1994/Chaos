@@ -222,19 +222,22 @@ function SkeletonDialog({ g, pr, ans }) {
 function HellLordDialog({ g, pr, ans }) {
     const [t1, setT1] = useState(pr.targets[0]);
     const [t2, setT2] = useState(pr.targets[1]);
-    const [picks, setPicks] = useState([]);
-    const ok = t1 !== t2 && picks.length === 2;
+    const [n1, setN1] = useState(null);
+    const [n2, setN2] = useState(null);
+    const ok = t1 !== t2 && n1 !== null && n2 !== null;
     return (
         <Modal title="地獄領主的猜測">
-            <div className={UI.CH.m04}>選兩位不同玩家（有手牌且未免疫），再依序點選兩個點數：第 1 下猜第一位、第 2 下猜第二位 (1–13){pr.canWin ? '；兩次都猜中即獲勝。' : '。'}對方只有小丑時該次不觸發。</div>
+            <div className={UI.CH.m04}>選兩位不同玩家（有手牌且未免疫），各猜一次手牌點數 (1–13，格內是尚未出現的牌){pr.canWin ? '；兩次都猜中即獲勝。' : '。'}對方只有小丑時該次不觸發。</div>
             <div className={UI.CH.sectionTitle}>第一位</div>
             <PlayerBtns g={g} ids={pr.targets} onPick={setT1} />
+            <div className={UI.CH.m04}>{g.players[t1].name}：<b className="text-amber-300">{n1 ?? '—'}</b></div>
+            <NumPad g={g} picks={n1 === null ? [] : [n1]} onPick={v => setN1(v)} />
             <div className={UI.CH.sectionTitle}>第二位</div>
             <PlayerBtns g={g} ids={pr.targets} onPick={setT2} />
-            <div className={UI.CH.m04}>{g.players[t1].name}：<b className="text-amber-300">{picks[0] ?? '—'}</b>　{g.players[t2].name}：<b className="text-amber-300">{picks[1] ?? '—'}</b></div>
-            <NumPad g={g} picks={picks} onPick={v => setPicks(p => nextPicks(p, v))} />
+            <div className={UI.CH.m04}>{g.players[t2].name}：<b className="text-amber-300">{n2 ?? '—'}</b></div>
+            <NumPad g={g} picks={n2 === null ? [] : [n2]} onPick={v => setN2(v)} />
             {t1 === t2 && <div className={UI.CH.toast}>兩次必須選不同玩家</div>}
-            <button className={UI.CH.btn + ' w-full'} disabled={!ok} onClick={() => ans({ guesses: [{ targetId: t1, value: picks[0] }, { targetId: t2, value: picks[1] }] })}>確定</button>
+            <button className={UI.CH.btn + ' w-full'} disabled={!ok} onClick={() => ans({ guesses: [{ targetId: t1, value: n1 }, { targetId: t2, value: n2 }] })}>確定</button>
         </Modal>
     );
 }
