@@ -159,9 +159,8 @@
      cd-desc  說明 → 底部咖啡色底板 
      使用前提：外層卡片要 position: relative。 */
   .cd-num   { position:absolute; left:2.8%;  top:2.4%;  width:21.5%; height:14.7%; display:flex; align-items:center; justify-content:center; gap:0; container-type:size; white-space:nowrap; overflow:hidden; }
-  .cd-s     { font-size:min(85cqh, 58cqw); width:1em; height:1em; flex:none; margin-right:.1em; }   /* 花色（SVG）：在數字前面，大小 = 數字；依紅圈高／寬取較小者，不超出紅圈 */
-  .cd-n     { font-size:min(85cqh, 58cqw); line-height:1; text-shadow:0 0 2px #000,0 1px 3px #000; }  /* 數字（1 位數） */
-  .cd-s.two, .cd-n.two { font-size:min(85cqh, 43cqw); }                                                /* 2 位數：花色與數字一起縮小到剛好放進紅圈寬度 */
+  .cd-s     { font-size:min(85cqh, 43cqw); width:1em; height:1em; flex:none; margin-right:.1em; }   /* 花色（SVG）：在數字前面，大小 = 數字 */
+  .cd-n     { font-size:min(85cqh, 43cqw); line-height:1; text-shadow:0 0 2px #000,0 1px 3px #000; }  /* 數字：1 位數與 2 位數大小一致（以 2 位數剛好放進紅圈為準） */
   .cd-title { position:absolute; left:8%; top:5%; width:84%; height:10%; display:flex; align-items:center; justify-content:center; overflow:hidden; white-space:nowrap; text-align:center; }
   .cd-icon  { position:absolute; left:12%;   top:16%; width:74.6%; height:44%; display:flex; align-items:center; justify-content:center; }
   .cd-desc  { position:absolute; left:12.5%; top:73.5%; width:74%;   height:19.5%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; }

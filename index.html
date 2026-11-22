@@ -1,3031 +1,832 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>群魔 Chaos - 道具牌修正版</title>
-<style>
-    body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #1a1e24; color: #cbd5e1; padding: 20px; max-width: 1200px; margin: 0 auto; }
-    h1 { color: #f59e0b; text-align: center; margin-bottom: 5px;}
-    .btn-restart { display: block; margin: 0 auto 15px auto; padding: 8px 16px; background: #ef4444; color: white; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.5); transition: 0.2s; }
-    .btn-restart:hover { background: #dc2626; }
-    .top-panels { display: flex; justify-content: center; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
-    .panel { background: #2a3542; padding: 10px 20px; border-radius: 8px; border: 1px solid #475569; width: 200px; }
-    .panel-title { color: #94a3b8; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 4px; margin-bottom: 6px;}
-    .card-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 60px; overflow-y: auto; }
-    .mini-card { background: #1e293b; border: 1px solid #0f172a; border-radius: 3px; padding: 2px 6px; font-size: 11px; color: #fcd34d; }
-    .mini-card.blood { color: #ef4444; border-color: #7f1d1d; }
-    
-    .board { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; justify-content: center; }
-    .player-box { background-color: #2a3542; border: 2px solid #3b4754; border-radius: 8px; padding: 15px; width: 240px; position: relative; }
-    .player-box.me { border-color: #10b981; background-color: #1e3a2f; }
-    .player-box h3 { margin-top: 0; border-bottom: 1px solid #4b5563; padding-bottom: 5px; color: #93c5fd; display: flex; justify-content: space-between;}
-    .player-box h3 span { color: #fcd34d; font-size: 13px; }
-    .area-title { font-size: 12px; color: #94a3b8; margin-top: 10px; margin-bottom: 4px; }
-    .cards-container { min-height: 70px; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
-    .card { background: linear-gradient(145deg, #3b4754, #1e293b); border: 1px solid #0f172a; border-radius: 4px; padding: 6px 4px; text-align: center; width: 40px; box-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
-    .card .num { font-size: 18px; font-weight: bold; color: #fcd34d; line-height: 1; }
-    .card .name { font-size: 11px; color: #e2e8f0; margin-top: 2px; white-space: nowrap; }
-    .card .suit-symbol, .mini-card .suit-symbol { margin-right: 2px; }
-    .suit-spade .suit-symbol, .suit-club .suit-symbol { color: #38bdf8; }
-    .suit-heart .suit-symbol, .suit-diamond .suit-symbol { color: #ef4444; }
-    .card.red-joker .name { color: #ef4444; }
-    .card.blue-joker .name { color: #38bdf8; }
-    .modal-content .modal-card { display: inline-block; margin: 2px; }
-    .modal-content .modal-card-large { margin: 10px auto; }
-    .card.back { background: #1e293b; border: 1px solid #334155; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #475569;}
-    .card.forced { box-shadow: 0 0 10px #f87171; border-color: #f87171; }
-    .card.immune-card { border-color: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
-    .card.hand-tenpai { background: linear-gradient(145deg, #166534, #14532d); border-color: #4ade80; box-shadow: 0 0 12px #22c55e; }
-    .card.hand-tenpai .name { color: #dcfce7; }
-    .card.front-tenpai { border-color: #4ade80; box-shadow: 0 0 14px #22c55e, 0 0 6px #4ade80; }
-    .card.hand-win { background: linear-gradient(145deg, #fef08a, #eab308); border-color: #fef08a; box-shadow: 0 0 16px #facc15; }
-    .card.hand-win .num, .card.hand-win .name { color: #713f12; }
-    
-    .tenpai-badge { position: absolute; top: -12px; right: 10px; background: #e11d48; color: white; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px; box-shadow: 0 0 15px #e11d48; animation: pulse-red 1.5s infinite; z-index: 10;}
-    @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 10px #e11d48, 0 0 20px #e11d48; } 50% { box-shadow: 0 0 20px #e11d48, 0 0 35px #e11d48; } }
-    .tenpai-text { font-size: 12px; color: #fca5a5; margin-top: 8px; background: rgba(225,29,72,0.2); border: 1px solid #e11d48; padding: 4px; border-radius: 4px; text-align: center; font-weight: bold; }
-    
-    .global-controls button { background-color: #3b4754; color: white; border: 1px solid #1e293b; padding: 10px 16px; border-radius: 6px; cursor: pointer; margin: 5px; font-weight: bold; font-size: 14px; }
-    .global-controls button:hover:not(:disabled) { background-color: #4b5563; }
-    .global-controls button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .log { background-color: #0f172a; border: 1px solid #334155; height: 350px; overflow-y: auto; padding: 10px; font-size: 13px; border-radius: 6px; margin-top: 20px; line-height: 1.6; }
-    .log p { margin: 2px 0; border-bottom: 1px dashed #1e293b; padding-bottom: 4px;}
-    .log .win { color: #fcd34d; font-weight: bold; font-size: 15px; }
-    .log .effect { color: #38bdf8; }
-    .log .target { color: #f87171; }
-    .log .sys { color: #94a3b8; font-style: italic; }
-    .log .discard { color: #fbbf24; }
-    .log .succubus { color: #d946ef; font-weight: bold; }
-    .log .skeleton { color: #a8a29e; font-weight: bold; }
-    .log .immune { color: #38bdf8; font-weight: bold; }
-    .log .dragon { color: #10b981; font-weight: bold; }
-    .log .blood { color: #ef4444; font-weight: bold; }
-    .log .chimera { color: #f97316; font-weight: bold; }
-    .log .joker { color: #e879f9; font-weight: bold; }
-    .log .nightmare { color: #8b5cf6; font-weight: bold; }
-    
-    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 100; }
-    .modal-content { background: #2a3542; padding: 20px; border-radius: 8px; max-width: 600px; width: 100%; max-height: 85vh; overflow-y: auto; box-sizing: border-box; border: 2px solid #f59e0b; }
-    .card-guide-entry { background: #1e293b; border-radius: 6px; padding: 10px; margin: 8px 0; }
-    .card-guide-entry h4 { color: #fcd34d; margin: 0 0 6px; }
-    .card-guide-entry p { margin: 4px 0; font-size: 13px; line-height: 1.5; }
-    
-    /* 手機版與縮放 */
-    .scale-controls { text-align: center; margin: 8px 0 12px; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .scale-controls button { padding: 6px 12px; background: #475569; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
-    .scale-controls button:hover { background: #64748b; }
-    .scale-controls span { color: #94a3b8; font-size: 13px; min-width: 50px; }
-    .card, .mini-card { transition: transform 0.15s; }
-    .card:active, .mini-card:active { transform: scale(0.95); }
-    
-    @media (max-width: 768px) {
-        body { padding: 10px; max-width: 100%; }
-        h1 { font-size: 1.3rem; }
-        .top-panels { gap: 8px; }
-        .panel { width: 45% !important; min-width: 140px; padding: 8px 12px; }
-        .panel[style*="250px"] { width: 100% !important; }
-        .player-box { width: 100%; max-width: 320px; padding: 12px; }
-        .board { gap: 10px; }
-        .card { width: 36px; padding: 5px 3px; }
-        .card .num { font-size: 16px; }
-        .card .name { font-size: 10px; }
-        .log { height: 220px; font-size: 12px; }
-        .global-controls button { padding: 8px 12px; font-size: 13px; margin: 3px; }
-        .modal-content { max-width: 95vw; padding: 15px; }
-        .btn-restart { padding: 8px 14px; font-size: 14px; }
-    }
-    @media (max-width: 480px) {
-        .panel { width: 100% !important; }
-        .top-panels { flex-direction: column; align-items: stretch; }
-        .card { width: 32px; }
-        .tenpai-badge { font-size: 11px; padding: 2px 8px; }
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>群魔 Chaos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 牌桌 A–F 區介面設定（複製自狼月 theme.js，另加 UI.CH 群魔專用樣式）：改外觀請編輯 chaos-theme.js -->
+    <script src="chaos-theme.js"></script>
+    <!-- 群魔規則引擎（純規則，無畫面）：改規則請編輯 chaos-engine.js -->
+    <script src="chaos-engine.js"></script>
+    <style>
+        * { -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; touch-action: manipulation; }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+        html, body, #root { height: 100%; margin: 0; background: #020617; }
+    </style>
 </head>
 <body>
+    <div id="root"></div>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+const { useState, useEffect, useLayoutEffect, useRef, useContext } = React;
+const PeekCtx = React.createContext(null); // 任何彈窗中的牌都可點開看詳情
+const E = window.ChaosEngine;
+const VERSION = '群魔 v0.1.0';
+const STAGE_W = 405, STAGE_H = 720;
+const HUMAN = 0;
+const NAMES = ['你', '青鸞', '白澤', '玄武', '朱雀', '麒麟'];
+const GRADS = ['from-emerald-400 to-teal-600', 'from-sky-400 to-blue-600', 'from-rose-400 to-red-600', 'from-amber-300 to-orange-600', 'from-violet-400 to-purple-600', 'from-pink-400 to-fuchsia-600'];
+const GUIDE = {};
+Object.values(E.CARD_GUIDE).forEach(g => { GUIDE[g.id] = g; });
+const GUIDE_BY_NAME = {};
+Object.values(E.CARD_GUIDE).forEach(g => { GUIDE_BY_NAME[g.n] = g; });
+const sym = c => (c && E.SUIT_SYMBOLS[c.suit]) || '';
+const suitCls = c => (c.suit === 'heart' || c.suit === 'diamond' || c.id === 'RED_JOKER') ? UI.CH.red
+    : (c.suit === 'spade' || c.suit === 'club' || c.id === 'BLUE_JOKER') ? UI.CH.blue : UI.CH.neutral;
+const isJoker = c => c.id === 'RED_JOKER' || c.id === 'BLUE_JOKER';
+const targetable = p => p.hand.filter(c => !isJoker(c));
+const frontSum = p => p.front.reduce((s, c) => s + (c.v || 0), 0);
 
-<h1>群魔 Chaos - 道具牌修正版 (測試全明牌模式)</h1>
-<div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:10px;">
-    <label for="player-count" style="color:#cbd5e1; font-weight:bold;">遊戲人數：</label>
-    <select id="player-count" style="padding:7px 10px; background:#2a3542; color:white; border:1px solid #475569; border-radius:6px;">
-        <option value="3">3 人（你 + 2 AI）</option>
-        <option value="4" selected>4 人（你 + 3 AI）</option>
-        <option value="5">5 人（你 + 4 AI）</option>
-        <option value="6">6 人（你 + 5 AI）</option>
-    </select>
-    <label for="game-mode" style="color:#cbd5e1; font-weight:bold; margin-left:12px;">模式：</label>
-    <select id="game-mode" onchange="matchState.darkMode = isDarkMode(); updateUI()" style="padding:7px 10px; background:#2a3542; color:white; border:1px solid #475569; border-radius:6px;">
-        <option value="dark" selected>暗牌模式</option>
-        <option value="open">全明牌模式</option>
-    </select>
-</div>
-<button class="btn-restart" onclick="startNewMatch()">🔄 重新比賽</button>
-<button class="btn-restart" onclick="showCardGuide()" style="background:#475569;">📖 卡牌說明</button>
-<div class="scale-controls">
-    <button onclick="changeScale(-0.1)" title="縮小">➖ 縮小</button>
-    <span id="scale-display">100%</span>
-    <button onclick="changeScale(0.1)" title="放大">➕ 放大</button>
-    <button onclick="changeScale(0, true)" title="重置">↺ 重置</button>
-</div>
-
-<div style="text-align: center; margin-bottom: 15px;">
-    <div id="match-status" style="color:#a5b4fc; font-weight:bold; margin:5px 0;"></div>
-    <h3 id="turn-indicator" style="color: #fcd34d; margin: 5px 0;">遊戲初始化中...</h3>
-    <div class="global-controls" id="global-controls"></div>
-</div>
-
-<div class="top-panels">
-    <div class="panel" style="width: 170px;">
-        <div class="panel-title">
-            <span>備用牌堆</span>
-            <span id="reserve-count" style="color:#a78bfa; font-weight:bold;">0 張</span>
-        </div>
-        <div id="reserve-cards" style="display: flex; gap: 6px; margin-top: 5px; justify-content: center;"></div>
-    </div>
-
-    <div class="panel" style="width: 180px;">
-        <div class="panel-title">
-            <span>牌庫剩餘</span>
-            <span id="deck-count" style="color:#38bdf8; font-weight:bold;">0 張</span>
-        </div>
-        <div id="deck-bar" style="height: 10px; background: #1e293b; border-radius: 5px; overflow: hidden; margin-top: 5px;">
-            <div style="height: 100%; background: #38bdf8; transition: width 0.3s;"></div>
-        </div>
-    </div>
-
-    <div class="panel" style="width: 180px;">
-        <div class="panel-title">
-            <span>暗牌區</span>
-            <span id="center-count" style="color:#f59e0b;">0/3</span>
-        </div>
-        <div id="center-cards" style="display: flex; gap: 8px; margin-top: 5px; justify-content: center;"></div>
-    </div>
-    
-    <div class="panel" style="width: 250px;">
-        <div class="panel-title">
-            <span>棄牌區</span>
-            <span id="discard-count" style="color:#f59e0b;">0 張</span>
-        </div>
-        <div id="discard-cards" class="card-list"></div>
-    </div>
-</div>
-
-<div class="board" id="board"></div>
-
-<div class="log" id="log"></div>
-<div id="modal-container"></div>
-
-<script>
-// --- 卡牌定義 ---
-const CARD_DEFS = [
-    { v: 13, n: '地獄領主', id: 'HELL_LORD', suit: 'heart' },
-    { v: 13, n: '克蘇魯', id: 'CTHULHU', suit: 'spade' },
-    { v: 12, n: '外星人', id: 'ALIEN', suit: 'heart' },
-    { v: 12, n: '南瓜王', id: 'PUMPKIN_KING', suit: 'spade' },
-    { v: 11, n: '魔龍', id: 'DRAGON', suit: 'spade' },
-    { v: 11, n: '海怪', id: 'SEA_MONSTER', suit: 'heart' },
-    { v: 10, n: '吸血鬼', id: 'VAMPIRE', suit: 'heart' },
-    { v: 10, n: '狼人', id: 'WEREWOLF', suit: 'spade' },
-    { v: 8, n: '巨魔', id: 'TROLL', suit: 'spade' },
-    { v: 9, n: '夢魘', id: 'NIGHTMARE', suit: 'heart' },
-    { v: 8, n: '死靈法師', id: 'NECROMANCER', suit: 'heart' },
-    { v: 9, n: '沙蟲', id: 'SANDWORM', suit: 'spade' },
-    { v: 7, n: '無頭騎士', id: 'HEADLESS', suit: 'heart' },
-    { v: 7, n: '奇美拉', id: 'CHIMERA', suit: 'spade' },
-    { v: 6, n: '魅魔', id: 'SUCCUBUS', suit: 'heart' },
-    { v: 6, n: '美杜莎', id: 'MEDUSA', suit: 'spade' },
-    { v: 5, n: '女巫', id: 'WITCH', suit: 'heart' },
-    { v: 5, n: '石像鬼', id: 'GARGOYLE', suit: 'spade' },
-    { v: 4, n: '科學怪人', id: 'FRANKENSTEIN', suit: 'heart' },
-    { v: 4, n: '牛頭人', id: 'MINOTAUR', suit: 'spade' },
-    { v: 3, n: '木乃伊', id: 'MUMMY', suit: 'heart' },
-    { v: 3, n: '幽靈', id: 'GHOST', suit: 'spade' },
-    { v: 2, n: '喪屍', id: 'ZOMBIE' },
-    { v: 1, n: '骷髏', id: 'SKELETON' }
-];
-const SUITS = ['spade', 'club', 'heart', 'diamond'];
-const SUIT_SYMBOLS = { spade: '♠', club: '♣', heart: '♥', diamond: '♦' };
-const SPECIALS = { 
-    MOON: { n: '月亮', v: 0, id: 'MOON' }, 
-    PUMPKIN: { n: '南瓜', v: 0, id: 'PUMPKIN' },
-    BLOOD: { n: '鮮血', v: 0, id: 'BLOOD' },
-    RED_JOKER: { n: '紅小丑', v: 0, id: 'RED_JOKER' },
-    BLUE_JOKER: { n: '藍小丑', v: 0, id: 'BLUE_JOKER' }
+// 花色用 SVG 繪製（比文字符號容易精準置中）：數字疊在它正中央
+const SUIT_PATH = {
+    heart: 'M50 92 C20 68 5 50 5 31 C5 16 16 7 28 7 C38 7 46 13 50 21 C54 13 62 7 72 7 C84 7 95 16 95 31 C95 50 80 68 50 92 Z',
+    diamond: 'M50 3 L90 50 L50 97 L10 50 Z',
+    spade: 'M50 4 C50 4 94 34 94 60 C94 75 83 84 71 84 C63 84 56 80 53 74 C54 83 58 90 66 96 L34 96 C42 90 46 83 47 74 C44 80 37 84 29 84 C17 84 6 75 6 60 C6 34 50 4 50 4 Z',
+    club: 'M50 6 A22 22 0 1 1 50 50 A22 22 0 1 1 50 6 Z M27 40 A22 22 0 1 1 27 84 A22 22 0 1 1 27 40 Z M73 40 A22 22 0 1 1 73 84 A22 22 0 1 1 73 40 Z M50 50 C50 76 46 88 34 96 L66 96 C54 88 50 76 50 50 Z',
+    star: 'M50 4 L61 38 L96 38 L67 59 L78 94 L50 73 L22 94 L33 59 L4 38 L39 38 Z'
 };
-
-const CARD_GUIDE = [
-    { id: 'RED_JOKER', n: '紅小丑', victory: '打出前，自己面前區有藍小丑。', effect: '選擇任何玩家面前區任意一張紅色牌，發動其效果。' },
-    { id: 'BLUE_JOKER', n: '藍小丑', victory: '打出前，自己面前區有紅小丑。', effect: '選擇任何玩家面前區任意一張藍色牌，發動其效果。' },
-    { id: 'CTHULHU', n: '克蘇魯', victory: '如果牌庫抽完且無人達成勝利條件，則持有克蘇魯的玩家獲勝。', effect: '所有玩家棄掉面前數值最大的一張牌（同數值只棄 1 張，可選擇哪一張）。' },
-    { id: 'HELL_LORD', n: '地獄領主', victory: '打出時，猜中兩位玩家手牌。', effect: '猜兩位玩家手牌，猜中玩家手牌後，可放置於自己面前，被猜中玩家抽牌補回。' },
-    { id: 'PUMPKIN_KING', n: '南瓜王', victory: '南瓜牌出現過後，同時打出骷髏+南瓜王／無頭騎士+南瓜王。', effect: '抽到必須打出，不能放入暗牌。可選擇只打出南瓜王，或與骷髏／無頭騎士一起打出；一起打出時補抽 1 張牌。' },
-    { id: 'ALIEN', n: '外星人', victory: '打出前，除你以外，其他玩家都在叫糊狀態。', effect: '最終結算時，手持此牌，面前區每張牌點數加２。' },
-    { id: 'DRAGON', n: '魔龍', victory: '打出前，自己面前區的牌點數總和大於或等於３０。', effect: '查看所有人手牌，然後重新派發。' },
-    { id: 'SEA_MONSTER', n: '海怪', victory: '打出前，自己面前區至少有１對數字相同的牌（1號2號不算）。', effect: '查看牌堆頂的1張牌再決定是否交換。' },
-    { id: 'VAMPIRE', n: '吸血鬼', victory: '達成條件成功從暗牌中召喚。', effect: '鮮血牌出現過後，且面前區點數總和為 0 時可從暗牌堆拿出。' },
-    { id: 'WEREWOLF', n: '狼人', victory: '月亮牌打出前手握此牌。', effect: '打出前要棄掉面前區的一張牌（包括狼人自己）。' },
-    { id: 'SANDWORM', n: '沙蟲', victory: '打出前，自己面前區至少有２張藍色牌，而且你是場上面前區最多藍色牌的玩家（平手不算）。', effect: '從別人面前區選一張放到自己面前區；若奪得牛頭人，可立即選擇棄掉它以獲得額外回合。' },
-    { id: 'NIGHTMARE', n: '夢魘', victory: '打出前，自己面前區至少有２張紅色牌，而且你是場上面前區最多紅色牌的玩家（平手不算）。', effect: '查看暗牌及備用牌的卡。' },
-    { id: 'NECROMANCER', n: '死靈法師', victory: '打出前，自己面前區至少有３張數值２以下的牌。', effect: '從棄牌區選一張放到自己面前區。' },
-    { id: 'TROLL', n: '巨魔', victory: '打出前，自己面前區至少有２張１０或以上的牌。', effect: '比手牌大，手牌較小的放在面前較大者面前，手牌較小者抽牌補回一張牌。' },
-    { id: 'HEADLESS', n: '無頭騎士', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '所有玩家棄掉面前區數值最小的一張牌（同數值只棄 1 張，可選擇哪一張）。' },
-    { id: 'CHIMERA', n: '奇美拉', victory: '打出前，自己面前區至少有５款不同妖怪。', effect: '令目標（可選自己）棄手牌於面前區並重抽（不包括奇美拉自己）。' },
-    { id: 'SUCCUBUS', n: '魅魔', victory: '被選擇的玩家勝利才能勝利，自己無法勝利。', effect: '秘密選擇一位玩家，該玩家勝利才能勝利。' },
-    { id: 'MEDUSA', n: '美杜莎', victory: '打出前，所有玩家面前牌數目一樣，且每人至少１張。', effect: '所有玩家把６或以上的牌放於各自面前區，然後抽牌補回。' },
-    { id: 'WITCH', n: '女巫', victory: '打出前，自己面前區至少有２張牌，而且你是場上面前區牌最少的玩家（平手不算）。', effect: '所有玩家把５或以下的牌放於各自面前區，然後抽牌補回。' },
-    { id: 'GARGOYLE', n: '石像鬼', victory: '打出前，自己面前區至少有３張牌，而且你是場上面前區牌最多的玩家（平手不算）。', effect: '此回合免疫效果。' },
-    { id: 'FRANKENSTEIN', n: '科學怪人', victory: '打出前，自己面前區至少有３張７-１０號的牌。', effect: '回合結束時可棄掉面前區的科學怪人，額外獲得一回合。' },
-    { id: 'MINOTAUR', n: '牛頭人', victory: '打出前，自己面前區至少有３張３-６號的牌。', effect: '查看別人手牌並選擇是否交換，額外獲得一回合。' },
-    { id: 'MUMMY', n: '木乃伊', victory: '打出前，自己面前區的牌至少有三張順序遞增的牌。', effect: '比手牌小，手牌較大的放在面前較小者面前，手牌較大者抽牌補回。' },
-    { id: 'GHOST', n: '幽靈', victory: '打出前，自己面前區的牌至少有三張順序遞減的牌。', effect: '最終結算比點前，手拿幽靈可以移動一位玩家面前的一張牌。' },
-    { id: 'ZOMBIE', n: '喪屍', victory: '打出前，自己面前區至少有兩張數字2／兩張數字1的牌。', effect: '選擇一位玩家（可選自己）棄掉面前一張牌（不包括喪屍自己）；打出前所有玩家面前沒有牌則不會發動。' },
-    { id: 'SKELETON', n: '骷髏', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '選擇一位玩家，猜兩個手牌數值；任一猜中其非小丑手牌，即可將該牌放到自己面前，並讓對方抽牌補回。' },
-    { id: 'MOON', n: '月亮', victory: '無。', effect: '正常抽牌抽到時直接棄掉，並獲得額外一次抽牌行動；因其他效果抽到時只棄掉。' },
-    { id: 'PUMPKIN', n: '南瓜', victory: '無。', effect: '正常抽牌抽到時直接棄掉，並獲得額外一次抽牌行動；因其他效果抽到時只棄掉。' },
-    { id: 'BLOOD', n: '鮮血', victory: '無。', effect: '正常抽牌抽到時直接棄掉，並獲得額外一次抽牌行動；棄牌堆有鮮血時可滿足召喚吸血鬼的條件之一。' }
-];
-
-// --- 遊戲狀態 ---
-let state = { 
-    players: [], deck: [], discard: [], centerCards: [], reserves: [],
-    currentTurn: 0, gameOver: false, extraTurn: false, 
-    pendingSlot: null, pendingVampire: false,
-    uiState: 'DRAW_PHASE',
-    initialDeckSize: 0,
-    waitForPlayerAck: false,
-    pendingGhost: null,
-    pendingSeaMonsterCard: null,
-    skipFrankensteinOnce: false,
-    waitForDiscardChoice: false
-};
-let matchState = {
-    wins: [],
-    round: 1,
-    playerCount: 4,
-    darkMode: true,
-    active: false,
-    finished: false
-};
-let modalHistory = [];
-
-// 手機縮放
-let uiScale = 1;
-function changeScale(delta, reset = false) {
-    if (reset) uiScale = 1;
-    else uiScale = Math.max(0.6, Math.min(1.4, Math.round((uiScale + delta) * 10) / 10));
-    document.body.style.zoom = uiScale;
-    const display = document.getElementById('scale-display');
-    if (display) display.textContent = Math.round(uiScale * 100) + '%';
-}
-
-// --- 工具函數 ---
-function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
-function log(msg, type = '') { document.getElementById('log').innerHTML = `<p class="${type}">${msg}</p>` + document.getElementById('log').innerHTML; }
-function logSys(msg) { log(msg, 'sys'); }
-function renderCardFace(card, extraClasses = '') {
-    const suit = card.suit || '';
-    const symbol = SUIT_SYMBOLS[suit] || '';
-    const jokerClass = card.id === 'RED_JOKER' ? 'red-joker' : card.id === 'BLUE_JOKER' ? 'blue-joker' : '';
-    const clickAttr = card.id ? `onclick="showCardInfo('${card.id}')" style="cursor:pointer;" title="點擊查看說明"` : '';
-    return `<div class="card ${suit ? `suit-${suit}` : ''} ${jokerClass} ${extraClasses}" ${clickAttr}><div class="num">${card.v ?? ''}</div><div class="name">${symbol ? `<span class="suit-symbol">${symbol}</span>` : ''}${card.n}</div></div>`;
-}
-function isJokerCard(card) { return card.id === 'RED_JOKER' || card.id === 'BLUE_JOKER'; }
-function isRedCard(card) { return card.suit === 'heart' || card.suit === 'diamond' || card.id === 'RED_JOKER'; }
-function isBlueCard(card) { return card.suit === 'club' || card.suit === 'spade' || card.id === 'BLUE_JOKER'; }
-function targetableHandCards(player) { return player.hand.filter(card => !isJokerCard(card)); }
-function getGuessTargets(player) {
-    return state.players.filter(target =>
-        target.id !== player.id && target.hand.length > 0 && !target.immune);
-}
-function getUnplayedCardOptions(player) {
-    const remaining = new Map();
-    CARD_DEFS.forEach(def => {
-        const count = def.id === 'ZOMBIE' || def.id === 'SKELETON' ? 4 : 1;
-        const key = `${def.n}|${def.v}`;
-        remaining.set(key, { name: def.n, value: def.v, count });
-    });
-    [SPECIALS.RED_JOKER, SPECIALS.BLUE_JOKER].forEach(card => {
-        remaining.set(`${card.n}|${card.v}`, { name: card.n, value: card.v, count: 1 });
-    });
-
-    const knownCards = [
-        ...state.discard,
-        ...state.players.flatMap(other => other.front),
-        ...player.hand
-    ];
-    knownCards.forEach(card => {
-        const option = remaining.get(`${card.n}|${card.v}`);
-        if (option) option.count--;
-    });
-    return [...remaining.values()].filter(option => option.count > 0);
-}
-function renderUnplayedCardHint(player) {
-    const options = getUnplayedCardOptions(player);
-    const cards = options.map(option =>
-        `<span class="mini-card">${option.value} ${option.name} ×${option.count}</span>`).join('');
-    return `<div style="background:#1e293b; padding:10px; border-radius:6px; margin:10px 0;">
-        <strong style="color:#fcd34d;">尚未公開的牌（扣除棄牌、面前牌及你的手牌）：</strong>
-        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${cards || '沒有可列出的牌'}</div>
-    </div>`;
-}
-function isDarkMode() {
-    return document.getElementById('game-mode').value === 'dark';
-}
-function getHellLordTargets(p) {
-    return getGuessTargets(p);
-}
-
-function getPlayerTotalScore(player) {
-    return player.front.reduce((sum, card) => sum + (card.v || 0), 0);
-}
-
-function getAIStrategicTarget(p, targets) {
-    return targets.slice().sort((a, b) => {
-        const winsDifference = (matchState.wins[b.id] || 0) - (matchState.wins[a.id] || 0);
-        const aTenpai = !isDarkMode() && getTenpaiInfo(a).length > 0 ? 1 : 0;
-        const bTenpai = !isDarkMode() && getTenpaiInfo(b).length > 0 ? 1 : 0;
-        return winsDifference ||
-            bTenpai - aTenpai ||
-            getPlayerTotalScore(b) - getPlayerTotalScore(a) ||
-            (!isDarkMode() ? getTenpaiInfo(b).length - getTenpaiInfo(a).length : 0);
-    })[0];
-}
-
-function getAIThreatReduction(player, cardIndex) {
-    if (isDarkMode()) return 0;
-    const tenpaiBefore = getTenpaiInfo(player);
-    const removed = player.front.splice(cardIndex, 1)[0];
-    state.discard.push(removed);
-    let tenpaiAfter;
-    try {
-        tenpaiAfter = getTenpaiInfo(player);
-    } finally {
-        state.discard.pop();
-        player.front.splice(cardIndex, 0, removed);
-    }
-    return tenpaiBefore.length - tenpaiAfter.length;
-}
-
-function getAIStrategicFrontCard(target) {
-    return target.front
-        .map((card, index) => ({
-            card,
-            index,
-            threatReduction: getAIThreatReduction(target, index)
-        }))
-        .sort((a, b) =>
-            b.threatReduction - a.threatReduction || (b.card.v || 0) - (a.card.v || 0))[0];
-}
-
-function getAIAttackCardIndex(p) {
-    const hasCalledOpponent = !isDarkMode() && state.players.some(player =>
-        player.id !== p.id && getTenpaiInfo(player).length > 0);
-    const attackCardIds = hasCalledOpponent
-        ? ['ZOMBIE', 'SANDWORM', 'CTHULHU', 'HEADLESS', 'RED_JOKER', 'BLUE_JOKER']
-        : ['ZOMBIE', 'SANDWORM'];
-
-    return p.hand.findIndex(card => {
-        if (!attackCardIds.includes(card.id)) return false;
-        if (card.id === 'ZOMBIE') {
-            return state.players.some(target =>
-                target.id !== p.id && !target.immune &&
-                getZombieDiscardOptions(target, p.id, card.uid).length > 0);
-        }
-        if (card.id === 'SANDWORM') {
-            return state.players.some(target =>
-                target.id !== p.id && !target.immune && target.front.length > 0);
-        }
-        if (card.id === 'RED_JOKER' || card.id === 'BLUE_JOKER') {
-            return getJokerEffectTargets(card).some(({ card: targetCard }) =>
-                ['ZOMBIE', 'SANDWORM', 'CTHULHU', 'HEADLESS'].includes(targetCard.id));
-        }
-        return state.players.some(target =>
-            target.id !== p.id && !target.immune && target.front.length > 0);
-    });
-}
-
-function shouldAISwapHandCards(p, target) {
-    const ownCard = targetableHandCards(p)[0];
-    const targetCard = targetableHandCards(target)[0];
-    if (!ownCard || !targetCard) return false;
-
-    const nightmareActive = state.players.some(player =>
-        player.hand.some(card => card.id === 'NIGHTMARE') ||
-        player.front.some(card => card.id === 'NIGHTMARE'));
-    return nightmareActive
-        ? targetCard.v < ownCard.v
-        : targetCard.v > ownCard.v;
-}
-
-function hasDescendingTriple(cards) {
-    for (let first = 0; first < cards.length - 2; first++) {
-        if (cards[first].v > cards[first + 1].v &&
-            cards[first + 1].v > cards[first + 2].v) return true;
-    }
-    return false;
-}
-
-function hasAscendingTriple(cards) {
-    for (let first = 0; first < cards.length - 2; first++) {
-        if (cards[first].v < cards[first + 1].v &&
-            cards[first + 1].v < cards[first + 2].v) return true;
-    }
-    return false;
-}
-
-function putToDiscard(cards, sourceText) {
-    if (!Array.isArray(cards)) cards = [cards];
-    if (cards.length === 0) return;
-    
-    cards.forEach(c => state.discard.push(c));
-    
-    const cardNames = cards.map(c => `【${c.n}】`).join('、');
-    log(`🗑️ ${sourceText} ➔ ${cardNames} 進入棄牌堆 (目前共 ${state.discard.length} 張)`, 'discard');
-}
-
-function canWinWithGargoyle(p, frontCount) {
-    return frontCount >= 3 &&
-        state.players.every(other => other.id === p.id || other.front.length < frontCount);
-}
-
-function canWinWithFewestFrontCards(p, frontCount) {
-    return frontCount >= 2 &&
-        state.players.every(other => other.id === p.id || other.front.length > frontCount);
-}
-
-function canWinWithMostColorCards(p, front, colorCheck) {
-    const colorCount = front.filter(colorCheck).length;
-    return colorCount >= 2 &&
-        state.players.every(other => other.id === p.id ||
-            colorCount > other.front.filter(colorCheck).length);
-}
-
-function canWinWithEqualFrontCounts(p, frontCount) {
-    return frontCount >= 1 &&
-        state.players.every(other => other.id === p.id || other.front.length === frontCount);
-}
-
-function hasPairExcludingLowValues(cards) {
-    const counts = {};
-    cards.forEach(card => {
-        if (card.v > 2) counts[card.v] = (counts[card.v] || 0) + 1;
-    });
-    return Object.values(counts).some(count => count >= 2);
-}
-
-function getZombieDiscardOptions(target, actorId, sourceCardUid) {
-    return target.front
-        .map((card, index) => ({ card, index }))
-        .filter(({ card }) => target.id !== actorId || card.uid !== sourceCardUid);
-}
-
-// 抽牌邏輯：如果抽到道具牌，直接棄掉並返回 isItem: true
-function drawCardLogic(player, isActiveTurn) {
-    if (state.deck.length === 0) return null;
-    let card = state.deck.pop();
-    
-    if (card.id === 'PUMPKIN' || card.id === 'MOON' || card.id === 'BLOOD') {
-        const typeCls = card.id === 'BLOOD' ? 'blood' : 'win';
-        
-        if (isActiveTurn) {
-            putToDiscard(card, `${player.name} 抽到道具牌【${card.n}】，直接棄掉`);
-            log(`🔔 ${player.name} 獲得額外一回合。`, typeCls);
-            state.extraTurn = true; 
-            return { card: null, isItem: true };
-        } else {
-            putToDiscard(card, `${player.name} 因效果抽到道具牌【${card.n}】，直接棄掉`);
-            return { card: null, isItem: true };
-        }
-    }
-    return { card, isItem: false };
-}
-
-// forceDraw：強制補牌。牌庫空時改抽備用牌；備用牌也空則抽不到。
-// 抽到道具牌會棄掉並繼續抽，直到拿到怪物牌或兩邊都空。
-function forceDraw(player, isActiveTurn = false) {
-    // 先從主牌庫抽
-    while (state.deck.length > 0) {
-        const res = drawCardLogic(player, isActiveTurn);
-        if (!res) break;
-        if (!res.isItem && res.card) return res.card;
-    }
-    // 主牌庫空 → 改抽備用牌
-    while (state.reserves.length > 0) {
-        const card = state.reserves.pop();
-        if (card.id === 'PUMPKIN' || card.id === 'MOON' || card.id === 'BLOOD') {
-            putToDiscard(card, `${player.name} 從備用牌抽到道具牌【${card.n}】，直接棄掉`);
-            continue; // 道具牌棄掉繼續抽
-        }
-        log(`📦 ${player.name} 牌庫已空，從備用牌抽到【${card.n}】。`, 'sys');
-        return card;
-    }
-    log(`📦 ${player.name} 牌庫與備用牌皆空，無法補抽。`, 'sys');
-    return null;
-}
-
-// --- 叫糊判定引擎 ---
-function getTenpaiInfo(p, includeAlien = true) {
-    const front = p.front;
-    // 排除棄牌堆、所有玩家（包含自己）面前區已出現的牌
-    const visibleTitles = new Set(state.discard.map(c => c.n));
-    state.players.forEach(pl => {
-        pl.front.forEach(c => visibleTitles.add(c.n));
-    });
-
-    const tenpaiList = [];
-
-    const checkWin = (cardTitle, cardValue) => {
-        switch(cardTitle) {
-            case '克蘇魯': return false; 
-            case '魔龍': return front.reduce((sum, c) => sum + (c.v || 0), 0) >= 30;
-            case '骷髏':
-                return state.discard.some(c => c.id === 'PUMPKIN') &&
-                    p.hand.some(c => c.id === 'PUMPKIN_KING');
-            case '海怪': return hasPairExcludingLowValues(front);
-            case '巨魔': return front.filter(c => c.v >= 10).length >= 2;
-            case '死靈法師': return front.filter(c => c.v <= 2).length >= 3;
-            case '無頭騎士':
-                return state.discard.some(c => c.id === 'PUMPKIN') &&
-                    p.hand.some(c => c.id === 'PUMPKIN_KING');
-            case '奇美拉': return new Set(front.map(c => c.n)).size >= 5;
-            case '魅魔': return false;
-            case '沙蟲': return canWinWithMostColorCards(p, front, isBlueCard);
-            case '美杜莎': return canWinWithEqualFrontCounts(p, front.length);
-            case '女巫': return canWinWithFewestFrontCards(p, front.length);
-            case '石像鬼': {
-                return canWinWithGargoyle(p, front.length);
-            }
-            case '科學怪人': return front.filter(c => c.v >= 7 && c.v <= 10).length >= 3;
-            case '牛頭人': return front.filter(c => c.v >= 3 && c.v <= 6).length >= 3;
-            case '木乃伊': return hasAscendingTriple(front);
-            case '幽靈': return hasDescendingTriple(front);
-            case '夢魘': return canWinWithMostColorCards(p, front, isRedCard);
-            case '喪屍': {
-                const count1 = front.filter(c => c.v === 1).length;
-                const count2 = front.filter(c => c.v === 2).length;
-                return count1 >= 2 || count2 >= 2;
-            }
-            default: return false;
-        }
-    };
-
-    CARD_DEFS.forEach(def => {
-        if (def.id === 'ZOMBIE') return;
-        if (!includeAlien && def.id === 'ALIEN') return;
-        if (visibleTitles.has(def.n)) return; 
-        if (checkWin(def.n, def.v)) tenpaiList.push(def.n);
-    });
-
-    const visibleZombies = state.discard.filter(c => c.id === 'ZOMBIE').length +
-        state.players.reduce((count, player) =>
-            count + player.front.filter(c => c.id === 'ZOMBIE').length, 0);
-    if (visibleZombies < 4 && checkWin('喪屍', 2)) {
-        tenpaiList.push('喪屍');
-    }
-
-    const redJokerAvailable = state.centerCards.some(c => c && c.id === 'RED_JOKER') ||
-        p.hand.some(c => c.id === 'RED_JOKER');
-    const blueJokerAvailable = state.centerCards.some(c => c && c.id === 'BLUE_JOKER') ||
-        p.hand.some(c => c.id === 'BLUE_JOKER');
-    if (redJokerAvailable &&
-        !state.players.some(pl => pl.front.some(c => c.id === 'RED_JOKER'))) {
-        if (front.some(c => c.id === 'BLUE_JOKER')) tenpaiList.push('紅小丑');
-    }
-    if (blueJokerAvailable &&
-        !state.players.some(pl => pl.front.some(c => c.id === 'BLUE_JOKER'))) {
-        if (front.some(c => c.id === 'RED_JOKER')) tenpaiList.push('藍小丑');
-    }
-
-    if (!visibleTitles.has('吸血鬼')) {
-        const hasBlood = state.discard.some(c => c.id === 'BLOOD');
-        const frontValue = p.front.reduce((sum, c) => sum + (c.v || 0), 0);
-        if (hasBlood && frontValue === 0) tenpaiList.push('吸血鬼');
-    }
-
-    if (includeAlien && !visibleTitles.has('外星人') && areOtherPlayersTenpai(p, true)) {
-        tenpaiList.push('外星人');
-    }
-
-    return tenpaiList;
-}
-
-function areOtherPlayersTenpai(p, excludeMedusa = false) {
-    return state.players.filter(other => other.id !== p.id)
-        .every(other => {
-            const list = getTenpaiInfo(other, false);
-            if (excludeMedusa) {
-                return list.filter(n => n !== '美杜莎').length > 0;
-            }
-            return list.length > 0;
-        });
-}
-
-// 模擬打出某張牌後的叫糊列表（僅看面前區組成，不模擬複雜效果）
-function getTenpaiAfterPlaying(p, cardToPlay) {
-    p.front.push(cardToPlay);
-    try {
-        return getTenpaiInfo(p);
-    } finally {
-        p.front.pop();
-    }
-}
-
-// 找出面前區中「對目前叫糊條件有貢獻」的牌（用於亮綠）
-function getContributingFrontUids(front, tenpaiNames) {
-    const uids = new Set();
-    if (!tenpaiNames || tenpaiNames.length === 0 || front.length === 0) return uids;
-
-    const has = (name) => tenpaiNames.includes(name);
-
-    // 木乃伊：嚴格遞增的連續三張
-    if (has('木乃伊')) {
-        for (let i = 0; i < front.length - 2; i++) {
-            if (front[i].v < front[i+1].v && front[i+1].v < front[i+2].v) {
-                uids.add(front[i].uid); uids.add(front[i+1].uid); uids.add(front[i+2].uid);
-            }
-        }
-    }
-    // 幽靈：嚴格遞減的連續三張
-    if (has('幽靈')) {
-        for (let i = 0; i < front.length - 2; i++) {
-            if (front[i].v > front[i+1].v && front[i+1].v > front[i+2].v) {
-                uids.add(front[i].uid); uids.add(front[i+1].uid); uids.add(front[i+2].uid);
-            }
-        }
-    }
-    // 夢魘：紅色牌
-    if (has('夢魘')) {
-        front.forEach(c => { if (isRedCard(c)) uids.add(c.uid); });
-    }
-    // 沙蟲：藍色牌
-    if (has('沙蟲')) {
-        front.forEach(c => { if (isBlueCard(c)) uids.add(c.uid); });
-    }
-    // 巨魔：≥10
-    if (has('巨魔')) {
-        front.forEach(c => { if ((c.v || 0) >= 10) uids.add(c.uid); });
-    }
-    // 科學怪人：7–10
-    if (has('科學怪人')) {
-        front.forEach(c => { if ((c.v || 0) >= 7 && (c.v || 0) <= 10) uids.add(c.uid); });
-    }
-    // 牛頭人：3–6
-    if (has('牛頭人')) {
-        front.forEach(c => { if ((c.v || 0) >= 3 && (c.v || 0) <= 6) uids.add(c.uid); });
-    }
-    // 死靈法師：≤2
-    if (has('死靈法師')) {
-        front.forEach(c => { if ((c.v || 0) <= 2) uids.add(c.uid); });
-    }
-    // 喪屍：1 或 2
-    if (has('喪屍')) {
-        front.forEach(c => { if (c.v === 1 || c.v === 2) uids.add(c.uid); });
-    }
-    // 奇美拉：所有不同名稱的牌都算貢獻
-    if (has('奇美拉')) {
-        front.forEach(c => uids.add(c.uid));
-    }
-    // 石像鬼 / 女巫 / 美杜莎：主要看「數量」，全部亮
-    if (has('石像鬼') || has('女巫') || has('美杜莎')) {
-        front.forEach(c => uids.add(c.uid));
-    }
-    // 魔龍：總點數，全部亮
-    if (has('魔龍')) {
-        front.forEach(c => uids.add(c.uid));
-    }
-    // 海怪：成對的（排除 1、2）
-    if (has('海怪')) {
-        const counts = {};
-        front.forEach(c => {
-            if ((c.v || 0) > 2) counts[c.v] = (counts[c.v] || 0) + 1;
-        });
-        const pairVals = Object.keys(counts).filter(v => counts[v] >= 2).map(Number);
-        front.forEach(c => { if (pairVals.includes(c.v)) uids.add(c.uid); });
-    }
-    // 紅/藍小丑
-    if (has('紅小丑') || has('藍小丑')) {
-        front.forEach(c => {
-            if (c.id === 'RED_JOKER' || c.id === 'BLUE_JOKER') uids.add(c.uid);
-        });
-    }
-
-    return uids;
-}
-
-// --- 統一勝利結算（含魅魔共同勝利） ---
-function declareWinner(winner, reasonText) {
-    if (state.gameOver) return;
-    
-    // 魅魔玩家自己觸發勝利 → 無人勝利
-    if (winner.bindTo !== undefined) {
-        log(`💔 ${winner.name} 持有【魅魔】並已綁定其他玩家，自己觸發勝利條件無效 → 判定無人勝利！`, 'succubus');
-        log(`🏆 遊戲結束：無人勝利（${reasonText}）`, 'win');
-        finishSmallRound([]);
-        return;
-    }
-    
-    log(`🏆 ${reasonText}`, 'win');
-    
-    // 檢查魅魔綁定共同勝利
-    const roundWinners = [winner];
-    state.players.forEach(p => {
-        if (p.id !== winner.id && p.bindTo === winner.id) {
-            log(`💖 ${p.name} 的【魅魔】綁定了【${winner.name}】，觸發共同勝利！`, 'succubus');
-            roundWinners.push(p);
-        }
-    });
-
-    finishSmallRound(roundWinners);
-}
-
-function finishSmallRound(winners) {
-    state.gameOver = true;
-    winners.forEach(winner => {
-        matchState.wins[winner.id] = (matchState.wins[winner.id] || 0) + 1;
-    });
-    updateUI();
-
-    const champions = state.players.filter(player => (matchState.wins[player.id] || 0) >= 3);
-    if (champions.length > 0) {
-        matchState.finished = true;
-        const championNames = champions.map(player => player.name).join('、');
-        log(`🏆 比賽結束！${championNames} 最先取得 3 小局勝利！`, 'win');
-        document.getElementById('turn-indicator').innerText = `🏆 ${championNames} 贏得整場比賽！`;
-        document.getElementById('global-controls').innerHTML =
-            `<button onclick="startNewMatch()">開始新比賽</button>`;
-        return;
-    }
-
-    const winnerNames = winners.length > 0 ? winners.map(player => player.name).join('、') : '無人';
-    document.getElementById('turn-indicator').innerText =
-        `第 ${matchState.round} 小局結束：${winnerNames} 獲勝；先取得 3 勝者贏得比賽。`;
-    document.getElementById('global-controls').innerHTML =
-        `<button onclick="startNextRound()">開始第 ${matchState.round + 1} 小局</button>
-         <button onclick="startNewMatch()">重新比賽</button>`;
-}
-
-function startNewMatch() {
-    const playerCount = Number(document.getElementById('player-count').value);
-    const darkMode = isDarkMode();
-    matchState = {
-        wins: Array(playerCount).fill(0),
-        round: 1,
-        playerCount,
-        darkMode,
-        active: true,
-        finished: false
-    };
-    initGame();
-}
-
-function startNextRound() {
-    if (matchState.finished) return;
-    document.getElementById('player-count').value = String(matchState.playerCount);
-    document.getElementById('game-mode').value = matchState.darkMode ? 'dark' : 'open';
-    matchState.round++;
-    initGame();
-}
-
-// --- 初始化遊戲 ---
-function initGame() {
-    closeModal();
-    const playerCount = matchState.active
-        ? matchState.playerCount
-        : Number(document.getElementById('player-count').value);
-    state = { 
-        players: [], deck: [], discard: [], centerCards: [], reserves: [],
-        currentTurn: 0, gameOver: false, extraTurn: false, 
-        pendingSlot: null, pendingVampire: false,
-        uiState: 'DRAW_PHASE',
-        initialDeckSize: 0,
-        waitForPlayerAck: false,
-        pendingGhost: null,
-        pendingSeaMonsterCard: null,
-        skipFrankensteinOnce: false,
-        waitForDiscardChoice: false
-    };
-    document.getElementById('log').innerHTML = '';
-    
-    let deck = [];
-    CARD_DEFS.forEach(def => {
-        let count = (def.id === 'ZOMBIE' || def.id === 'SKELETON') ? 4 : 1;
-        for(let i=0; i<count; i++) {
-            const suit = def.id === 'ZOMBIE' || def.id === 'SKELETON' ? SUITS[i] : def.suit;
-            deck.push({ ...def, suit, uid: Math.random().toString(36).substr(2,9) });
-        }
-    });
-    
-    // 先抽出：吸血鬼、狼人；並建立月亮、南瓜、鮮血
-    const vampire = deck.find(c => c.id === 'VAMPIRE'); deck = deck.filter(c => c.id !== 'VAMPIRE');
-    const werewolf = deck.find(c => c.id === 'WEREWOLF'); deck = deck.filter(c => c.id !== 'WEREWOLF');
-    
-    const moon = { ...SPECIALS.MOON, uid: 'moon' };
-    const pumpkin = { ...SPECIALS.PUMPKIN, uid: 'pumpkin' };
-    const blood = { ...SPECIALS.BLOOD, uid: 'blood' };
-
-    shuffle(deck);
-    
-    // 暗牌區：吸血鬼 + 紅小丑 + 藍小丑（固定 3 張）
-    const redJoker = { ...SPECIALS.RED_JOKER, uid: 'red-joker' };
-    const blueJoker = { ...SPECIALS.BLUE_JOKER, uid: 'blue-joker' };
-    state.centerCards = [vampire, redJoker, blueJoker];
-    
-    // 備用牌堆：2 張
-    state.reserves = [deck.pop(), deck.pop()];
-
-    // 剩下的角色牌分 3 疊；無法被 3 整除的餘數進中層
-    // 最頂 1/3 → 洗入狼人
-    // 中間 1/3 → 洗入南瓜
-    // 最後 1/3 → 洗入月亮 + 鮮血
-    const n = deck.length;
-    const base = Math.floor(n / 3);
-    const rem = n % 3;
-    let top = deck.slice(0, base);                 // 最頂
-    let mid = deck.slice(base, base + base + rem); // 中間（含餘數）
-    let bot = deck.slice(base + base + rem);       // 最後
-
-    top.push(werewolf); shuffle(top);
-    mid.push(pumpkin); shuffle(mid);
-    bot.push(moon, blood); shuffle(bot); 
-    
-    // 陣列末端先被 pop → 最頂層放在最後
-    state.deck = [...bot, ...mid, ...top]; 
-    state.initialDeckSize = state.deck.length;
-
-    for(let i=0; i<playerCount; i++) {
-        const pName = i === 0 ? '你' : `AI ${i}`;
-        const pObj = { id: i, name: pName, hand: [], front: [], immune: false, knownCenter: [], knownReserves: [], status: '存活' };
-        const initCardIndex = state.deck.findIndex(card =>
-            card.id !== 'PUMPKIN' && card.id !== 'MOON' && card.id !== 'BLOOD');
-        if (initCardIndex !== -1) pObj.hand.push(state.deck.splice(initCardIndex, 1)[0]);
-        state.players.push(pObj);
-    }
-
-    logSys('🎮 遊戲開始！');
-    updateUI();
-    logSys(`牌庫分層：最頂層已洗入【狼人】、中間層已洗入【南瓜】、最底層已洗入【月亮】【鮮血】；暗牌區為【吸血鬼】+ 紅／藍小丑；備用牌 2 張。`);
-    logSys(`發完暗牌、備用牌及 ${playerCount} 位玩家起手牌後，主牌庫剩餘 ${state.deck.length} 張。`);
-    startTurn();
-}
-
-// --- 回合開始 ---
-function startTurn() {
-    if (state.gameOver) return;
-    if (state.deck.length === 0) { 
-        checkDeckEmpty(); 
-        return; 
-    }
-
-    const p = state.players[state.currentTurn];
-    if (p.immune) {
-        p.immune = false;
-        log(`🛡️ ${p.name} 的【石像鬼】免疫效果結束。`, 'sys');
-    }
-    
-    state.uiState = 'DRAW_PHASE'; 
-    state.waitForPlayerAck = false;
-    updateUI();
-    
-    if (p.name === '你') {
-        renderControls();
-    } else {
-        document.getElementById('turn-indicator').innerText = `${p.name} 正在思考...`;
-        document.getElementById('global-controls').innerHTML = '';
-        setTimeout(aiTurn, 800);
-    }
-}
-
-// --- 渲染控制按鈕 ---
-function renderControls() {
-    const p = state.players[state.currentTurn];
-    const controls = document.getElementById('global-controls');
-    const hasPumpkinKing = p.hand.some(c => c.id === 'PUMPKIN_KING');
-
-    document.getElementById('turn-indicator').innerText = state.extraTurn ? '額外回合！請抽牌或拿一還一' : '輪到你的回合，請抽牌或拿一還一';
-
-    if (state.uiState === 'DRAW_PHASE') {
-        controls.innerHTML = `
-            <button onclick="drawCard()" ${p.hand.length >= 2 ? 'disabled' : ''}>抽一打一</button>
-            <button onclick="takeCenter()" ${p.hand.length >= 2 || state.centerCards.filter(Boolean).length === 0 || hasPumpkinKing ? 'disabled' : ''}>拿一還一</button>
-            ${hasPumpkinKing ? '<div style="font-size:12px; color:#ef4444; margin-top:5px;">⚠️ 手上有【南瓜王】，無法拿一還一！</div>' : ''}
-        `;
-    } else if (state.uiState === 'PLAY_PHASE') {
-        if (hasPumpkinKing) {
-            document.getElementById('turn-indicator').innerText = '⚠️ 手上有【南瓜王】：可選擇只打出南瓜王，或與骷髏／無頭騎士一起打出（一起打出會補抽 1 張）';
-            const pkIndex = p.hand.findIndex(c => c.id === 'PUMPKIN_KING');
-            const skeletonIndices = p.hand.map((c, i) => c.id === 'SKELETON' ? i : -1).filter(i => i >= 0);
-            const headlessIndices = p.hand.map((c, i) => c.id === 'HEADLESS' ? i : -1).filter(i => i >= 0);
-            
-            let buttons = `<button onclick="playCard(${pkIndex}, false)" style="background:#3b4754; padding:10px; margin:4px;">只打出 南瓜王</button>`;
-            skeletonIndices.forEach(si => {
-                buttons += `<button onclick="playCard(${pkIndex}, true, ${si})" style="background:#b45309; padding:10px; margin:4px;">南瓜王 + 骷髏（補抽）</button>`;
-            });
-            headlessIndices.forEach(hi => {
-                buttons += `<button onclick="playCard(${pkIndex}, true, ${hi})" style="background:#b45309; padding:10px; margin:4px;">南瓜王 + 無頭騎士（補抽）</button>`;
-            });
-            // 其他牌禁用
-            p.hand.forEach((c, i) => {
-                if (c.id !== 'PUMPKIN_KING' && c.id !== 'SKELETON' && c.id !== 'HEADLESS') {
-                    buttons += `<button disabled style="background:#1e293b; color:#64748b; padding:10px; margin:4px; border:1px dashed #475569;">${c.n} (強制優先南瓜王)</button>`;
-                }
-            });
-            controls.innerHTML = buttons;
-        } else {
-            document.getElementById('turn-indicator').innerText = '請選擇一張牌打出到面前區';
-            controls.innerHTML = p.hand.map((c, i) => {
-                return `<button onclick="playCard(${i})" style="background:#3b4754; padding:10px;">${c.n} (${c.v})</button>`;
-            }).join('');
-        }
-    } else if (state.uiState === 'RETURN_PHASE') {
-        document.getElementById('turn-indicator').innerText = '拿一還一：請選擇一張手牌放回暗牌區（面朝下）';
-        controls.innerHTML = p.hand.map((c, i) => {
-            if (c.id === 'PUMPKIN_KING') {
-                return `<button disabled style="background:#1e293b; color:#64748b; padding:10px; border:1px dashed #ef4444;">${c.n} (不可放回)</button>`;
-            }
-            return `<button onclick="returnCardToCenter(${i})" style="background:#475569; padding:10px;">放回 ${c.n} (${c.v})</button>`;
-        }).join('');
-    }
-}
-
-// --- 抽牌 ---
-function drawCard() {
-    const p = state.players[state.currentTurn];
-    logSys(`${p.name} 進行抽牌。`);
-    
-    const result = drawCardLogic(p, true);
-    if (!result) {
-        if (state.deck.length === 0) checkDeckEmpty();
-        return;
-    }
-    
-    if (result.isItem) {
-        state.extraTurn = false;
-        if (state.deck.length === 0) {
-            checkDeckEmpty();
-            return;
-        }
-        state.uiState = 'DRAW_PHASE';
-        updateUI();
-        renderControls();
-        return;
-    }
-    
-    if (result.card) {
-        p.hand.push(result.card);
-        log(`${p.name} 抽到了 ${result.card.n} (${result.card.v})`, 'sys');
-        state.uiState = 'PLAY_PHASE'; 
-        updateUI();
-        renderControls();
-    } else {
-        if (state.deck.length === 0) checkDeckEmpty();
-    }
-}
-
-// --- 拿一還一 ---
-function takeCenter() {
-    const p = state.players[state.currentTurn];
-    if (p.hand.some(c => c.id === 'PUMPKIN_KING')) return;
-
-    const knownCenter = state.players[0].knownCenter || [];
-    const hasBloodInDiscard = state.discard.some(c => c.id === 'BLOOD');
-    const frontValue = p.front.reduce((sum, c) => sum + (c.v || 0), 0);
-    const canSummonVampire = hasBloodInDiscard && frontValue === 0;
-
-    let conditionText = '';
-    if (!hasBloodInDiscard) conditionText = '⚠️ 棄牌堆尚未出現【鮮血】。';
-    else if (frontValue > 0) conditionText = '⚠️ 你的面前區點數總和不為 0，無法召喚。';
-    else conditionText = '✅ 已滿足條件（面前區點數=0），若抽到【吸血鬼】即可直接勝利！';
-
-    showModal(`選擇要拿的暗牌`, `
-        <p style="font-size:12px; color:#fcd34d; margin-bottom:10px;">${conditionText}</p>
-        <div style="display:flex; gap:10px; justify-content:center;">
-            ${state.centerCards.map((c, i) => c ? `<button onclick="confirmTakeCenter(${i}, ${canSummonVampire})" style="padding:20px; background:#475569; color:white;">${knownCenter[i] === c.uid ? `${c.n} (${c.v})` : `暗牌 ${i+1}`}</button>` : '').join('')}
-        </div>
-    `);
-}
-
-function confirmTakeCenter(index, canSummonVampire) {
-    const p = state.players[state.currentTurn];
-    const taken = state.centerCards[index];
-    
-    if (taken.id === 'VAMPIRE') {
-        if (canSummonVampire) {
-            state.centerCards[index] = null;
-            p.front.push(taken);
-            closeModal();
-            declareWinner(p, `${p.name} 在【鮮血】出現後，且面前無牌，成功從暗牌召喚出【吸血鬼】，獲得勝利！`);
-            return;
-        } else {
-            log(`⚠️ ${p.name} 拿走了【吸血鬼】，但未達成召喚條件，必須將它放回暗牌區！`, 'sys');
-            closeModal(); 
-            updateUI();
-            endTurn(); 
-            return;
-        }
-    }
-    
-    state.pendingSlot = index;
-    p.hand.push(taken);
-    state.centerCards[index] = null; 
-    closeModal(); 
-    logSys(`${p.name} 從暗牌區拿了一張牌，請選擇一張手牌放回。`);
-    
-    state.uiState = 'RETURN_PHASE'; 
-    updateUI(); 
-    renderControls();
-}
-
-function returnCardToCenter(index) {
-    const p = state.players[state.currentTurn];
-    const centerSlot = state.pendingSlot;
-    
-    const card = p.hand[index];
-    if (card.id === 'PUMPKIN_KING') return;
-
-    p.hand.splice(index, 1)[0];
-    state.centerCards[centerSlot] = card;
-    p.knownCenter = p.knownCenter || [];
-    p.knownCenter[centerSlot] = card.uid;
-    state.pendingSlot = null;
-    logSys(`${p.name} 將【${card.n}】放回暗牌區第 ${centerSlot + 1} 張（你可以看到它的位置），回合結束。`);
-    
-    endTurn();
-}
-
-// --- 打牌 ---
-function resolveSkeletonEffect(p) {
-    if (p.name === '你') {
-        showSkeletonModal(p);
-        return true;
-    }
-
-    const targets = getGuessTargets(p);
-    if (targets.length > 0) {
-        const target = getAIStrategicTarget(p, targets);
-        const firstGuess = Math.floor(Math.random() * 14);
-        const secondGuess = (firstGuess + 1 + Math.floor(Math.random() * 13)) % 14;
-        const guesses = [firstGuess, secondGuess];
-        log(`💀 ${p.name} 的【骷髏】猜測【${target.name}】的手牌數值是 ${guesses.join('、')}。`, 'skeleton');
-
-        const targetCards = targetableHandCards(target);
-        const matchedCard = targetCards.find(card => guesses.includes(card.v));
-        if (targetCards.length === 0) {
-            log(`🃏【${target.name}】手持小丑，骷髏猜牌效果不會觸發。`, 'sys');
-        } else if (matchedCard) {
-            log(`✅ 猜測成功！${p.name} 將【${target.name}】的【${matchedCard.n}】搶到了自己面前。`, 'skeleton');
-            const stolen = target.hand.splice(target.hand.indexOf(matchedCard), 1)[0];
-            p.front.push(stolen);
-            const drawn = forceDraw(target, false);
-            if (drawn) {
-                target.hand.push(drawn);
-                log(`➔ ${target.name} 被猜中手牌，從牌庫抽了 1 張牌補回手牌。`, 'skeleton');
-            }
-        } else {
-            log(`❌ 猜測失敗！【${target.name}】的非小丑手牌沒有 ${guesses.join(' 或 ')}。`, 'skeleton');
-        }
-    } else {
-        log(`💀 ${p.name} 的【骷髏】沒有可猜測的目標（可能皆已免疫）。`, 'sys');
-    }
-    return false;
-}
-
-function resolveHellLordGuess(p, target, guessVal) {
-    const targetCard = targetableHandCards(target)[0];
-    log(`😈 ${p.name} 的【地獄領主】猜測【${target.name}】的手牌是 ${guessVal}。`, 'skeleton');
-    if (!targetCard) {
-        log(`🃏【${target.name}】手持小丑，地獄領主的猜牌效果不會觸發。`, 'sys');
-        return false;
-    }
-    if (targetCard.v !== guessVal) {
-        log(`❌ 猜測失敗！【${target.name}】的手牌不是 ${guessVal}。`, 'skeleton');
-        return false;
-    }
-
-    log(`✅ 猜測成功！${p.name} 將【${target.name}】的【${targetCard.n}】放到自己面前。`, 'skeleton');
-    target.hand.splice(target.hand.indexOf(targetCard), 1);
-    p.front.push(targetCard);
-    const drawn = forceDraw(target, false);
-    if (drawn) {
-        target.hand.push(drawn);
-        log(`➔ ${target.name} 被猜中手牌，從牌庫抽了 1 張牌補回手牌。`, 'skeleton');
-    }
-    return true;
-}
-
-function finishHellLordGuesses(p, guesses, canWin) {
-    const targets = getHellLordTargets(p);
-    if (targets.length < 2) {
-        log(`😈 ${p.name} 的【地獄領主】沒有兩位可猜測的玩家，效果無法完成。`, 'sys');
-        return;
-    }
-
-    const correctGuesses = guesses.reduce((count, guess) => {
-        const target = targets.find(player => player.id === guess.targetId);
-        return count + (target && resolveHellLordGuess(p, target, guess.value) ? 1 : 0);
-    }, 0);
-
-    if (canWin && correctGuesses === 2) {
-        declareWinner(p, `${p.name} 打出【地獄領主】並成功猜中兩位玩家的手牌，獲得勝利！`);
-    } else if (!canWin && correctGuesses === 2) {
-        log(`😈 兩次猜牌均成功；小丑複製的【地獄領主】效果不會觸發其勝利條件。`, 'sys');
-    }
-}
-
-function resolveHellLordForAI(p, canWin = true) {
-    const targets = getHellLordTargets(p);
-    if (targets.length < 2) {
-        log(`😈 ${p.name} 的【地獄領主】沒有兩位可猜測的玩家，效果無法完成。`, 'sys');
-        return;
-    }
-
-    const guesses = targets.slice(0, 2).map(target => ({
-        targetId: target.id,
-        value: Math.floor(Math.random() * 14)
-    }));
-    finishHellLordGuesses(p, guesses, canWin);
-}
-
-function showHellLordModal(p, canWin = true) {
-    const targets = getHellLordTargets(p);
-    if (targets.length < 2) {
-        log(`😈 ${p.name} 的【地獄領主】沒有兩位可猜測的玩家，效果無法完成。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    const options = targets.map(target =>
-        `<option value="${target.id}">${target.name}</option>`).join('');
-    showModal('地獄領主的猜測', `
-        <p>選擇兩位不同玩家，並各猜一次手牌數值 (0-13)：</p>
-        ${renderUnplayedCardHint(p)}
-        <div style="margin-bottom:10px;">
-            <label>第一位玩家與猜測：</label>
-            <select id="hell-lord-target-1" style="width:100%; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">${options}</select>
-            <input type="number" id="hell-lord-guess-1" min="0" max="13" value="5" style="width:100%; margin-top:5px; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">
-        </div>
-        <div style="margin-bottom:15px;">
-            <label>第二位玩家與猜測：</label>
-            <select id="hell-lord-target-2" style="width:100%; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">${options}</select>
-            <input type="number" id="hell-lord-guess-2" min="0" max="13" value="5" style="width:100%; margin-top:5px; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">
-        </div>
-        <button onclick="confirmHellLordGuesses(${canWin})" style="width:100%; padding:10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;">確認猜測</button>
-    `);
-}
-
-function confirmHellLordGuesses(canWin = true) {
-    const p = state.players[state.currentTurn];
-    const targetId1 = parseInt(document.getElementById('hell-lord-target-1').value);
-    const targetId2 = parseInt(document.getElementById('hell-lord-target-2').value);
-    const guess1 = Number(document.getElementById('hell-lord-guess-1').value);
-    const guess2 = Number(document.getElementById('hell-lord-guess-2').value);
-    if (targetId1 === targetId2 || !Number.isInteger(guess1) || !Number.isInteger(guess2) ||
-        guess1 < 0 || guess1 > 13 || guess2 < 0 || guess2 > 13) {
-        log(`😈 請選擇兩位不同玩家，並輸入 0 至 13 的整數。`, 'sys');
-        return;
-    }
-
-    closeModal();
-    finishHellLordGuesses(p, [
-        { targetId: targetId1, value: guess1 },
-        { targetId: targetId2, value: guess2 }
-    ], canWin);
-    updateUI();
-    if (!state.gameOver) endTurn();
-}
-
-function playCard(index, forcePair = false, companionIndex = -1) {
-    const p = state.players[state.currentTurn];
-    const card = p.hand[index];
-    const hasPumpkinKing = p.hand.some(c => c.id === 'PUMPKIN_KING');
-    const pumpkinKing = p.hand.find(c => c.id === 'PUMPKIN_KING');
-
-    // 強制優先：手上有南瓜王時，只能打南瓜王相關
-    if (hasPumpkinKing && card.id !== 'PUMPKIN_KING' &&
-        card.id !== 'SKELETON' && card.id !== 'HEADLESS' && !forcePair) {
-        return; 
-    }
-
-    // 明確選擇「一起打出」南瓜王 + 同伴
-    if (forcePair && pumpkinKing && companionIndex >= 0 && p.hand[companionIndex]) {
-        const companion = p.hand[companionIndex];
-        if (companion.id !== 'SKELETON' && companion.id !== 'HEADLESS') return;
-
-        p.hand = p.hand.filter(c => c.uid !== pumpkinKing.uid && c.uid !== companion.uid);
-        p.front.push(pumpkinKing, companion);
-        
-        if (state.discard.some(c => c.id === 'PUMPKIN')) {
-            declareWinner(p, `${p.name} 在【南瓜】出現後，同時打出【南瓜王】與【${companion.n}】，觸發勝利！`);
-            return;
-        }
-
-        log(`🎃 ${p.name} 同時打出【南瓜王】與【${companion.n}】（尚未出現南瓜，不觸發勝利），執行【${companion.n}】效果並補抽 1 張。`, 'sys');
-        
-        // 一起打出 → 補抽一張
-        const drawn = forceDraw(p, false);
-        if (drawn) {
-            p.hand.push(drawn);
-            log(`➔ ${p.name} 因同時打出南瓜王組合，從牌庫補抽了【${drawn.n}】。`, 'sys');
-        }
-        
-        updateUI();
-        if (companion.id === 'SKELETON') {
-            if (resolveSkeletonEffect(p)) return;
-        } else {
-            resolveEffect(p, companion);
-            updateUI();
-            if (state.waitForDiscardChoice) return; // 等待人類選擇棄牌
-        }
-        endTurn();
-        return;
-    }
-
-    // 只打出南瓜王（或普通牌）
-    const winsByCard = checkVictoryCondition(p, card);
-    p.hand.splice(index, 1)[0];
-    p.front.push(card);
-    log(`▶️ ${p.name} 打出了 ${card.n} (${card.v})，置於面前區。`);
-
-    if (winsByCard) {
-        declareWinner(p, `${p.name} 觸發【${card.n}】的勝利條件，獲得勝利！`);
-        return;
-    }
-
-    setTimeout(() => {
-        resolveEffect(p, card);
-        
-        // 如果正在等待棄牌選擇（克蘇魯/無頭騎士），則不繼續 endTurn
-        if (state.waitForDiscardChoice) return;
-        
-        if (!state.gameOver) {
-            if (card.id === 'FRANKENSTEIN') {
-                // 留到回合結束處理
-            } else if (card.id === 'SEA_MONSTER') {
-                if (p.name === '你') {
-                    showSeaMonsterModal(p);
-                    return;
-                }
-                resolveSeaMonsterForAI(p);
-            } else if (card.id === 'SUCCUBUS') {
-                if (p.name === '你') {
-                    showSuccubusModal(p);
-                    return;
-                } else {
-                    const targets = state.players.filter(x => x.id !== p.id && !x.immune);
-                    if(targets.length === 0) { log(`💖 ${p.name} 的【魅魔】找不到目標（全員免疫）。`, 'sys'); }
-                    else {
-                        const target = getAIStrategicTarget(p, targets);
-                        log(`💖 ${p.name} 的【魅魔】秘密選擇了【${target.name}】，該玩家勝利時 ${p.name} 也將一起勝利！`, 'succubus');
-                        p.bindTo = target.id;
-                    }
-                }
-            } else if (card.id === 'MINOTAUR') {
-                if (p.name === '你') {
-                    showMinotaurModal(p);
-                    return;
-                } else {
-                    const targets = state.players.filter(x => x.id !== p.id && targetableHandCards(x).length > 0 && !x.immune);
-                    if (targets.length > 0 && targetableHandCards(p).length > 0) {
-                        const target = getAIStrategicTarget(p, targets);
-                        log(`🐂 ${p.name} 的【牛頭人】查看了【${target.name}】的手牌。`, 'target');
-                        if (shouldAISwapHandCards(p, target)) {
-                            const myCard = targetableHandCards(p)[0];
-                            const targetCard = targetableHandCards(target)[0];
-                            p.hand[p.hand.indexOf(myCard)] = targetCard;
-                            target.hand[target.hand.indexOf(targetCard)] = myCard;
-                            log(`🔄 ${p.name} 決定與【${target.name}】交換手牌！交換了 ${myCard.n} 與 ${targetCard.n}。`, 'effect');
-                        } else {
-                            log(`🚫 ${p.name} 決定不與【${target.name}】交換手牌。`, 'sys');
-                        }
-                    }
-                    log(`➔ ${p.name} 獲得額外回合！`, 'target');
-                    state.extraTurn = true;
-                }
-            } else if (card.id === 'SKELETON') {
-                if (resolveSkeletonEffect(p)) return;
-            } else if (card.id === 'HELL_LORD') {
-                if (p.name === '你') {
-                    showHellLordModal(p);
-                    return;
-                }
-                resolveHellLordForAI(p);
-            } else if (card.id === 'CHIMERA') {
-                if (p.name === '你') {
-                    showChimeraModal(p);
-                    return;
-                } else {
-                    const targets = state.players.filter(x => !x.immune);
-                    if(targets.length === 0) { log(`🦁 ${p.name} 的【奇美拉】找不到目標（全員免疫）。`, 'sys'); }
-                    else {
-                        const opponents = targets.filter(target => target.id !== p.id);
-                        const target = getAIStrategicTarget(p, opponents.length > 0 ? opponents : targets);
-                        log(`🦁 ${p.name} 的【奇美拉】選擇了【${target.name}】。`, 'chimera');
-                        executeChimeraEffect(target);
-                    }
-                }
-            } else if (card.id === 'NECROMANCER') {
-                if (p.name === '你') {
-                    showNecromancerModal(p);
-                    return;
-                } else {
-                    if (state.discard.length > 0) {
-                        let bestIdx = 0;
-                        for(let i=1; i<state.discard.length; i++) {
-                            if ((state.discard[i].v || 0) > (state.discard[bestIdx].v || 0)) bestIdx = i;
-                        }
-                        const picked = state.discard.splice(bestIdx, 1)[0];
-                        p.front.push(picked);
-                        log(`🧙 ${p.name} 的【死靈法師】從棄牌堆復活了【${picked.n} (${picked.v})】放入自己面前。`, 'effect');
-                    } else {
-                        log(`🧙 ${p.name} 的【死靈法師】想從棄牌堆拿牌，但棄牌堆是空的。`, 'sys');
-                    }
-                }
-            } else if (card.id === 'RED_JOKER' || card.id === 'BLUE_JOKER') {
-                if (p.name === '你') {
-                    showJokerEffectModal(p, card);
-                    return;
-                }
-                const eligibleEffects = getJokerEffectTargets(card);
-                if (eligibleEffects.length > 0) {
-                    const attackTargets = eligibleEffects.filter(({ card: targetCard }) =>
-                        ['ZOMBIE', 'SANDWORM', 'CTHULHU', 'HEADLESS'].includes(targetCard.id));
-                    const selected = attackTargets[0] || eligibleEffects[0];
-                    activateJokerCardEffect(p, selected.card, card);
-                } else {
-                    log(`🃏 ${p.name} 的【${card.n}】沒有可發動的同色牌效果。`, 'sys');
-                }
-            } else if (card.id === 'SANDWORM') {
-                if (p.name === '你') {
-                    showSandwormModal(p);
-                    return;
-                } else {
-                    const validOpps = state.players.filter(x => x.id !== p.id && x.front.length > 0 && !x.immune);
-                    if (validOpps.length > 0) {
-                        const opp = getAIStrategicTarget(p, validOpps);
-                        const selected = getAIStrategicFrontCard(opp);
-                        const stolen = opp.front.splice(selected.index, 1)[0];
-                        p.front.push(stolen);
-                        log(`🃏 ${p.name} 的【沙蟲】從【${opp.name}】面前奪取了【${stolen.n} (${stolen.v})】放入自己面前。`, 'joker');
-                        offerStolenMinotaur(p, stolen);
-                    } else {
-                        log(`🃏 ${p.name} 的【沙蟲】想奪取別人的牌，但沒有目標。`, 'sys');
-                    }
-                }
-            } else if (card.id === 'ZOMBIE') {
-                if (p.name === '你') {
-                    showZombieModal(p, card);
-                    return;
-                } else {
-                    const validTargets = state.players.filter(x =>
-                        getZombieDiscardOptions(x, p.id, card.uid).length > 0 && !x.immune);
-                    if (validTargets.length > 0) {
-                        const opponents = validTargets.filter(target => target.id !== p.id);
-                        const target = getAIStrategicTarget(p, opponents.length > 0 ? opponents : validTargets);
-                        const options = getZombieDiscardOptions(target, p.id, card.uid);
-                        const selected = options
-                            .map(option => ({
-                                ...option,
-                                threatReduction: getAIThreatReduction(target, option.index)
-                            }))
-                            .sort((a, b) =>
-                                b.threatReduction - a.threatReduction ||
-                                (b.card.v || 0) - (a.card.v || 0))[0];
-                        const discarded = target.front.splice(selected.index, 1)[0];
-                        putToDiscard(discarded, `${target.name} 因【喪屍】效果被迫棄掉面前的牌`);
-                    } else {
-                        log(`🧟 ${p.name} 的【喪屍】找不到可棄牌的目標。`, 'sys');
-                    }
-                }
-            } else if (card.id === 'TROLL' || card.id === 'MUMMY') {
-                if (p.name === '你') {
-                    showCompareTargetModal(p, card);
-                    return;
-                } else {
-                    const targets = state.players.filter(x => x.id !== p.id && targetableHandCards(x).length > 0 && !x.immune);
-                    if (targets.length > 0) {
-                        const target = getAIStrategicTarget(p, targets);
-                        executeCompare(p, target, card);
-                    } else {
-                        log(`➔ 沒有可比較的目標（可能免疫）。`, 'sys');
-                    }
-                }
-            } else if (card.id === 'NIGHTMARE') {
-                p.knownCenter = state.centerCards.map(c => c ? c.uid : null);
-                p.knownReserves = state.reserves.map(c => c ? c.uid : null);
-                log(`🌑 ${p.name} 打出了【夢魘】，查看了當下的暗牌區與備用牌；之後暗牌若被換走，夢魘不會知道新牌。`, 'nightmare');
-                if (p.name === '你') {
-                    let html = `<p>你查看了此刻的暗牌與備用牌。若暗牌之後被換走，你不會知道替換後的牌。</p>`;
-                    html += `<div style="display:flex; gap:10px; margin-top:15px; justify-content:center;"><div style="text-align:center;">暗牌區<br>`;
-                    state.centerCards.forEach(c => { if(c) html += renderCardFace(c, 'modal-card'); });
-                    html += `</div><div style="text-align:center;">備用牌<br>`;
-                    state.reserves.forEach(c => { if(c) html += renderCardFace(c, 'modal-card'); });
-                    html += `</div></div>`;
-                    showModal('夢魘的視野', html + `<button onclick="closeModal()" style="width:100%; margin-top:15px; padding:10px; background:#10b981; border:none; border-radius:4px; color:white; font-weight:bold;">我知道了</button>`, { onCancel: false });
-                }
-            }
-            
-            updateUI();
-            endTurn(); 
-        }
-    }, 500);
-}
-// --- 勝利條件判定 ---
-function checkVictoryCondition(p, card) {
-    const front = p.front; 
-    const prevFront = front.filter(c => c.uid !== card.uid); 
-    
-    switch(card.id) {
-        case 'DRAGON': return prevFront.reduce((sum, c) => sum + (c.v || 0), 0) >= 30;
-        case 'SEA_MONSTER': return hasPairExcludingLowValues(prevFront);
-        case 'HELL_LORD': return false;
-        case 'ALIEN':
-            return areOtherPlayersTenpai(p, true);
-        case 'WEREWOLF': return false;
-        case 'TROLL': return prevFront.filter(c => c.v >= 10).length >= 2;
-        case 'NECROMANCER': return prevFront.filter(c => c.v <= 2).length >= 3;
-        case 'HEADLESS': return false;
-        case 'CHIMERA': {
-            const uniqueNames = new Set(prevFront.map(c => c.n));
-            return uniqueNames.size >= 5;
-        }
-        case 'SANDWORM': return canWinWithMostColorCards(p, prevFront, isBlueCard);
-        case 'RED_JOKER': return prevFront.some(c => c.id === 'BLUE_JOKER');
-        case 'BLUE_JOKER': return prevFront.some(c => c.id === 'RED_JOKER');
-        case 'NIGHTMARE': return canWinWithMostColorCards(p, prevFront, isRedCard);
-        case 'MEDUSA':
-            return canWinWithEqualFrontCounts(p, prevFront.length);
-        case 'WITCH': {
-            return canWinWithFewestFrontCards(p, prevFront.length);
-        }
-        case 'GARGOYLE': return canWinWithGargoyle(p, prevFront.length);
-        case 'FRANKENSTEIN': return prevFront.filter(c => c.v >= 7 && c.v <= 10).length >= 3;
-        case 'MINOTAUR': return prevFront.filter(c => c.v >= 3 && c.v <= 6).length >= 3;
-        case 'MUMMY':
-            return hasAscendingTriple(prevFront);
-        case 'GHOST': return hasDescendingTriple(prevFront);
-        case 'ZOMBIE': {
-            const count1 = prevFront.filter(c => c.v === 1).length;
-            const count2 = prevFront.filter(c => c.v === 2).length;
-            return count1 >= 2 || count2 >= 2;
-        }
-        default: return false;
-    }
-}
-
-// 處理克蘇魯 / 無頭騎士的極端值棄牌（同數值只棄 1 張，人類可選）
-function processExtremeDiscard(sourceCard, mode) { // mode: 'max' | 'min'
-    const pendingChoices = []; // { player, candidates: [{card, index}] }
-    
-    state.players.forEach(pl => {
-        if (pl.immune) {
-            log(`　- ${pl.name} 獲得【石像鬼】免疫，不受影響。`, 'immune');
-            return;
-        }
-        const candidates = pl.front
-            .map((c, idx) => ({ card: c, index: idx }))
-            .filter(({ card }) => card.uid !== sourceCard.uid);
-        
-        if (candidates.length === 0) {
-            log(`　- ${pl.name} 面前沒有可棄的牌。`, 'sys');
-            return;
-        }
-        
-        const extremeVal = mode === 'max'
-            ? Math.max(...candidates.map(x => x.card.v || 0))
-            : Math.min(...candidates.map(x => x.card.v || 0));
-        
-        const extremeCandidates = candidates.filter(x => (x.card.v || 0) === extremeVal);
-        
-        if (extremeCandidates.length === 1) {
-            const { index } = extremeCandidates[0];
-            const removed = pl.front.splice(index, 1)[0];
-            putToDiscard(removed, `${pl.name} 因【${sourceCard.n}】效果棄掉`);
-        } else {
-            // 多張同值 → 需要選擇
-            if (pl.name === '你') {
-                pendingChoices.push({ player: pl, candidates: extremeCandidates, mode, sourceName: sourceCard.n });
-            } else {
-                // AI：優先棄掉會減少叫糊威脅的，否則隨機
-                const selected = extremeCandidates
-                    .map(opt => ({
-                        ...opt,
-                        threat: getAIThreatReduction(pl, opt.index)
-                    }))
-                    .sort((a, b) => b.threat - a.threat || Math.random() - 0.5)[0];
-                const removed = pl.front.splice(selected.index, 1)[0];
-                putToDiscard(removed, `${pl.name} 因【${sourceCard.n}】效果棄掉`);
-            }
-        }
-    });
-    
-    if (pendingChoices.length > 0) {
-        // 目前只支援一次選擇（通常只有人類自己）
-        const choice = pendingChoices[0];
-        showExtremeDiscardModal(choice);
-        // 注意：endTurn 會由 modal 確認後呼叫
-        state.waitForDiscardChoice = true;
-    }
-}
-
-function showExtremeDiscardModal(choice) {
-    const { player, candidates, mode, sourceName } = choice;
-    const label = mode === 'max' ? '數值最大' : '數值最小';
-    let html = `<p>因【${sourceName}】效果，你必須棄掉面前一張${label}的牌（同數值有多張，請選擇）：</p>
-        <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px;">`;
-    candidates.forEach(({ card, index }) => {
-        html += `<button onclick="confirmExtremeDiscard(${player.id}, ${index}, '${sourceName}')" style="padding:10px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer; display:flex; flex-direction:column; align-items:center;">
-            <span style="font-size:18px; font-weight:bold; color:#fcd34d;">${card.v}</span>
-            <span style="font-size:12px;">${card.n}</span>
-        </button>`;
-    });
-    html += `</div>`;
-    showModal(`選擇棄牌（${label}）`, html);
-}
-
-function confirmExtremeDiscard(playerId, cardIndex, sourceName) {
-    const pl = state.players.find(x => x.id === playerId);
-    if (!pl || !pl.front[cardIndex]) {
-        closeModal();
-        state.waitForDiscardChoice = false;
-        updateUI();
-        endTurn();
-        return;
-    }
-    const removed = pl.front.splice(cardIndex, 1)[0];
-    putToDiscard(removed, `${pl.name} 因【${sourceName}】效果棄掉`);
-    closeModal();
-    state.waitForDiscardChoice = false;
-    updateUI();
-    endTurn();
-}
-
-// --- 效果結算 ---
-function resolveEffect(p, card) {
-    log(`✨ 觸發【${card.n}】效果：`, 'effect');
-    
-    switch(card.id) {
-        case 'CTHULHU': {
-            log(`➔ 所有玩家必須棄掉面前數值最大的牌（同數值只棄 1 張，可選擇）：`, 'target');
-            processExtremeDiscard(card, 'max');
-            break;
-        }
-        case 'DRAGON': {
-            const targetableByPlayer = state.players.map(pl => targetableHandCards(pl));
-            const shuffledCards = shuffle(targetableByPlayer.flat());
-            let nextCard = 0;
-            state.players.forEach((pl, index) => {
-                const oldCards = targetableByPlayer[index];
-                const newCards = shuffledCards.slice(nextCard, nextCard + oldCards.length);
-                nextCard += oldCards.length;
-                pl.hand = pl.hand.filter(isJokerCard).concat(newCards);
-                if (pl.name === '你' && oldCards.length > 0) {
-                    log(`🐉 你被【魔龍】重洗了非小丑手牌。`, 'dragon');
-                }
-            });
-            log(`➔ 所有非小丑手牌已重新洗牌派發，小丑不受影響。`, 'target');
-            break;
-        }
-        case 'WEREWOLF': {
-            let discardedIndex = 0;
-            p.front.forEach((frontCard, index) => {
-                if ((frontCard.v || 0) >= (p.front[discardedIndex].v || 0)) discardedIndex = index;
-            });
-            const discarded = p.front.splice(discardedIndex, 1)[0];
-            putToDiscard(discarded, `${p.name} 因【狼人】效果棄掉面前數值最大的牌`);
-            break;
-        }
-        case 'HEADLESS': {
-            log(`➔ 所有玩家必須棄掉面前數值最小的牌（同數值只棄 1 張，可選擇）：`, 'target');
-            processExtremeDiscard(card, 'min');
-            break;
-        }
-        case 'MEDUSA':
-        case 'WITCH': {
-            const threshold = card.id === 'MEDUSA' ? 6 : 5;
-            const sign = card.id === 'MEDUSA' ? '≥' : '≤';
-            log(`➔ 所有玩家將手牌中 ${sign}${threshold} 的牌放到自己面前：`, 'target');
-            state.players.forEach(pl => {
-                if (pl.immune) {
-                    log(`　- ${pl.name} 獲得【石像鬼】免疫，不受影響。`, 'immune');
-                    return;
-                }
-                const toMove = targetableHandCards(pl).filter(c => card.id === 'MEDUSA' ? c.v >= threshold : c.v <= threshold);
-                if(toMove.length > 0) {
-                    pl.front.push(...toMove);
-                    pl.hand = pl.hand.filter(c => !toMove.includes(c));
-                    log(`　- ${pl.name} 將手牌 [${toMove.map(c=>c.n).join(', ')}] 放到了面前區。`, 'sys');
-                }
-            });
-            state.players.forEach(pl => {
-                if(pl.hand.length === 0 && state.deck.length > 0) {
-                    const drawn = forceDraw(pl, false);
-                    if (drawn) {
-                        pl.hand.push(drawn);
-                        log(`　- ${pl.name} 抽了 1 張牌補回手牌。`, 'sys');
-                    }
-                }
-            });
-            break;
-        }
-        case 'GARGOYLE':
-            p.immune = true;
-            log(`➔ ${p.name} 獲得免疫效果，持續到下個自己的回合開始前。`, 'immune');
-            break;
-    }
-}
-
-// --- 巨魔與木乃伊選擇目標彈窗 ---
-function showCompareTargetModal(p, card) {
-    const targets = state.players.filter(x => x.id !== p.id && targetableHandCards(x).length > 0 && !x.immune);
-    if (targets.length === 0 || targetableHandCards(p).length === 0) {
-        log(`➔ 沒有可比較的目標（可能免疫）。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    showModal(`【${card.n}】的目標`, `
-        <p>選擇一位玩家與你比手牌（${card.id === 'TROLL' ? '比大，小者輸' : '比小，大者輸'}）：</p>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:15px; flex-wrap:wrap;">
-            ${targets.map(t => `<button onclick="confirmCompareTarget(${t.id}, '${card.id}')" style="padding:10px 20px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer;">${t.name}</button>`).join('')}
-        </div>
-    `);
-}
-
-function confirmCompareTarget(targetId, cardId) {
-    const p = state.players[state.currentTurn];
-    const target = state.players.find(x => x.id === targetId);
-    const card = { id: cardId };
-    
-    log(`🎯 ${p.name} 選擇了【${target.name}】進行比大小。`, 'target');
-    closeModal();
-    executeCompare(p, target, card);
-    updateUI();
-    endTurn();
-}
-
-function executeCompare(p, target, card) {
-    const myCard = targetableHandCards(p)[0];
-    const opponentCard = targetableHandCards(target)[0];
-    if (!myCard || !opponentCard) {
-        log(`➔ 手牌中的小丑不受比牌效果影響。`, 'sys');
-        return;
-    }
-    const myVal = myCard.v || 0;
-    const oppVal = opponentCard.v || 0;
-    const isTroll = card.id === 'TROLL';
-    
-    log(`➔ ${p.name} (手牌 ${myVal}) 與 ${target.name} (手牌 ${oppVal}) 比手牌${isTroll ? '大' : '小'}。`, 'target');
-    
-    if (isTroll) {
-        if (myVal < oppVal) {
-            const lost = p.hand.splice(p.hand.indexOf(myCard), 1)[0];
-            target.front.push(lost);
-            log(`➔ ${p.name} 較小，將手牌 ${lost.n} 放在 ${target.name} 面前。`, 'target');
-            const drawn = forceDraw(p, false);
-            if (drawn) p.hand.push(drawn);
-            log(`➔ ${p.name} 失去手牌，補抽 1 張牌。`, 'sys');
-        } else if (oppVal < myVal) {
-            const lost = target.hand.splice(target.hand.indexOf(opponentCard), 1)[0];
-            p.front.push(lost);
-            log(`➔ ${target.name} 較小，將手牌 ${lost.n} 放在 ${p.name} 面前。`, 'target');
-            const drawn = forceDraw(target, false);
-            if (drawn) target.hand.push(drawn);
-            log(`➔ ${target.name} 失去手牌，補抽 1 張牌。`, 'sys');
-        } else { log(`➔ 平手，無事發生。`, 'target'); }
-    } else {
-        if (myVal > oppVal) {
-            const lost = p.hand.splice(p.hand.indexOf(myCard), 1)[0];
-            target.front.push(lost);
-            log(`➔ ${p.name} 較大，將手牌 ${lost.n} 放在 ${target.name} 面前。`, 'target');
-            const drawn = forceDraw(p, false);
-            if (drawn) p.hand.push(drawn);
-            log(`➔ ${p.name} 失去手牌，補抽 1 張牌。`, 'sys');
-        } else if (oppVal > myVal) {
-            const lost = target.hand.splice(target.hand.indexOf(opponentCard), 1)[0];
-            p.front.push(lost);
-            log(`➔ ${target.name} 較大，將手牌 ${lost.n} 放在 ${p.name} 面前。`, 'target');
-            const drawn = forceDraw(target, false);
-            if (drawn) target.hand.push(drawn);
-            log(`➔ ${target.name} 失去手牌，補抽 1 張牌。`, 'sys');
-        } else { log(`➔ 平手，無事發生。`, 'target'); }
-    }
-}
-
-// --- 喪屍選擇彈窗 ---
-function showZombieModal(p, sourceCard) {
-    const validTargets = state.players.filter(x =>
-        getZombieDiscardOptions(x, p.id, sourceCard.uid).length > 0 && !x.immune);
-    if (validTargets.length === 0) {
-        log(`🧟 你打出【喪屍】，但全場沒有玩家面前有牌（或皆免疫），效果不發動。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    showModal('喪屍的啃咬', `
-        <p>選擇一位玩家（可選自己），棄掉他面前的一張牌；若選自己，不可棄掉剛打出的牌。</p>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:15px; flex-wrap:wrap;">
-            ${validTargets.map(t => `<button onclick="selectZombieTarget(${t.id}, '${sourceCard.uid}')" style="padding:10px 20px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer;">${t.name}</button>`).join('')}
-        </div>
-    `);
-}
-
-function selectZombieTarget(targetId, sourceCardUid) {
-    const target = state.players.find(x => x.id === targetId);
-    const actor = state.players[state.currentTurn];
-    if (!target || !actor) return;
-    const options = getZombieDiscardOptions(target, actor.id, sourceCardUid);
-
-    if (options.length === 1) {
-        confirmZombieCard(targetId, options[0].index, sourceCardUid);
-    } else {
-        let html = `<p>選擇要棄掉【${target.name}】面前的哪一張牌：</p><div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px;">`;
-        options.forEach(({ card, index }) => {
-            html += `<button onclick="confirmZombieCard(${targetId}, ${index}, '${sourceCardUid}')" style="padding:10px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer; display:flex; flex-direction:column; align-items:center;">
-                <span style="font-size:18px; font-weight:bold; color:#fcd34d;">${card.v}</span>
-                <span style="font-size:12px;">${card.n}</span>
-            </button>`;
-        });
-        html += `</div>`;
-        showModal('選擇棄牌', html);
-    }
-}
-
-function confirmZombieCard(targetId, cardIndex, sourceCardUid) {
-    const target = state.players.find(x => x.id === targetId);
-    const actor = state.players[state.currentTurn];
-    const canDiscard = target && actor && !target.immune &&
-        getZombieDiscardOptions(target, actor.id, sourceCardUid).some(option => option.index === cardIndex);
-
-    if (canDiscard) {
-        const discarded = target.front.splice(cardIndex, 1)[0];
-        putToDiscard(discarded, `${target.name} 因【喪屍】效果被迫棄掉面前的牌`);
-    } else {
-        log(`🧟 喪屍效果取消：所選牌已無法棄除。`, 'sys');
-    }
-    
-    closeModal();
-    updateUI();
-    endTurn();
-}
-
-function getJokerEffectTargets(joker) {
-    const matchesColor = joker.id === 'RED_JOKER' ? isRedCard : isBlueCard;
-    return state.players.flatMap(player => player.front
-        .map((card, index) => ({ player, card, index }))
-        .filter(({ card }) => !isJokerCard(card) && matchesColor(card)));
-}
-
-function showJokerEffectModal(p, joker) {
-    const targets = getJokerEffectTargets(joker);
-    if (targets.length === 0) {
-        log(`🃏 你打出【${joker.n}】，但面前區沒有可發動效果的同色牌。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    const colorName = joker.id === 'RED_JOKER' ? '紅色' : '藍色';
-    const orderedPlayers = [
-        ...state.players.filter(player => player.id !== p.id),
-        ...state.players.filter(player => player.id === p.id)
-    ];
-    const playerSections = orderedPlayers.map(player => {
-        const playerTargets = targets.filter(target => target.player.id === player.id);
-        if (playerTargets.length === 0) return '';
-        return `<div style="background:#1e293b; padding:8px; border-radius:6px; margin-top:8px;">
-            <div style="color:#93c5fd; margin-bottom:5px; font-size:12px; font-weight:bold;">${player.id === p.id ? '你' : player.name} 面前：</div>
-            <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
-                ${playerTargets.map(({ card, index }) => `
-                    <button onclick="confirmJokerEffect(${player.id}, ${index}, '${joker.uid}')" style="padding:8px 12px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer;">
-                        ${SUIT_SYMBOLS[card.suit] || ''}${card.n}
-                    </button>`).join('')}
-            </div>
-        </div>`;
-    }).join('');
-    const html = `<p>可選擇其他玩家或你自己面前區的${colorName}牌，發動該牌效果（先列出其他玩家）：</p>${playerSections}`;
-    showModal(`${joker.n}的效果`, html);
-}
-
-function confirmJokerEffect(targetId, cardIndex, jokerUid) {
-    const p = state.players[state.currentTurn];
-    const target = state.players.find(player => player.id === targetId);
-    const copiedCard = target && target.front[cardIndex];
-    const joker = p.front.find(card => card.uid === jokerUid);
-    const matchesColor = joker && (joker.id === 'RED_JOKER' ? isRedCard : isBlueCard);
-    const isAvailableTarget = target && copiedCard && joker &&
-        getJokerEffectTargets(joker).some(option =>
-            option.player.id === target.id && option.card.uid === copiedCard.uid);
-    if (!isAvailableTarget || isJokerCard(copiedCard) || !matchesColor(copiedCard)) {
-        closeModal();
-        log(`🃏 所選牌不在任何玩家面前區，或不是可發動的同色牌；效果取消。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    closeModal();
-    const waitingForChoice = activateJokerCardEffect(p, copiedCard, joker);
-    updateUI();
-    if (!waitingForChoice) endTurn();
-}
-
-function activateJokerCardEffect(p, selectedCard, joker) {
-    const card = { ...selectedCard, uid: joker.uid };
-    log(`🃏【${joker.n}】發動了【${selectedCard.n}】的效果。`, 'effect');
-
-    switch (card.id) {
-        case 'CTHULHU':
-        case 'DRAGON':
-        case 'WEREWOLF':
-        case 'HEADLESS':
-        case 'MEDUSA':
-        case 'WITCH':
-        case 'GARGOYLE':
-            resolveEffect(p, card);
-            break;
-        case 'PUMPKIN_KING':
-            log(`🎃【南瓜王】的勝利需要與【骷髏】或【無頭騎士】同時打出；小丑複製效果不能代替配對打出。`, 'sys');
-            break;
-        case 'VAMPIRE':
-            log(`🧛【吸血鬼】沒有可在面前區發動的效果。`, 'sys');
-            break;
-        case 'SEA_MONSTER':
-            if (p.name === '你') {
-                showSeaMonsterModal(p);
-                return true;
-            }
-            resolveSeaMonsterForAI(p);
-            break;
-        case 'HELL_LORD':
-            if (p.name === '你') {
-                showHellLordModal(p, false);
-                return true;
-            }
-            resolveHellLordForAI(p, false);
-            break;
-        case 'TROLL':
-        case 'MUMMY':
-            if (p.name === '你') {
-                showCompareTargetModal(p, card);
-                return true;
-            }
-            {
-                const targets = state.players.filter(player =>
-                    player.id !== p.id && targetableHandCards(player).length > 0 && !player.immune);
-                if (targets.length > 0 && targetableHandCards(p).length > 0) {
-                    const target = getAIStrategicTarget(p, targets);
-                    executeCompare(p, target, card);
-                } else {
-                    log(`➔ 沒有可比較的目標（可能持有小丑或已免疫）。`, 'sys');
-                }
-            }
-            break;
-        case 'MINOTAUR':
-            if (p.name === '你') {
-                showMinotaurModal(p);
-                return true;
-            }
-            {
-                const targets = state.players.filter(player =>
-                    player.id !== p.id && targetableHandCards(player).length > 0 && !player.immune);
-                if (targets.length > 0 && targetableHandCards(p).length > 0) {
-                    const target = getAIStrategicTarget(p, targets);
-                    if (shouldAISwapHandCards(p, target)) {
-                        const myCard = targetableHandCards(p)[0];
-                        const targetCard = targetableHandCards(target)[0];
-                        p.hand[p.hand.indexOf(myCard)] = targetCard;
-                        target.hand[target.hand.indexOf(targetCard)] = myCard;
-                        log(`🔄 ${p.name} 透過【牛頭人】效果與【${target.name}】交換手牌。`, 'effect');
-                    } else {
-                        log(`🚫 ${p.name} 決定不交換手牌。`, 'sys');
-                    }
-                }
-                state.extraTurn = true;
-            }
-            break;
-        case 'CHIMERA':
-            if (p.name === '你') {
-                showChimeraModal(p);
-                return true;
-            }
-            {
-                const targets = state.players.filter(player => !player.immune);
-                if (targets.length > 0) {
-                    const opponents = targets.filter(target => target.id !== p.id);
-                    const target = getAIStrategicTarget(p, opponents.length > 0 ? opponents : targets);
-                    executeChimeraEffect(target);
-                }
-            }
-            break;
-        case 'NIGHTMARE': {
-            p.knownCenter = state.centerCards.map(c => c ? c.uid : null);
-            p.knownReserves = state.reserves.map(c => c ? c.uid : null);
-            log(`🌑 ${p.name} 透過【${joker.n}】查看了當下的暗牌區與備用牌；之後暗牌若被換走，夢魘不會知道新牌。`, 'nightmare');
-            if (p.name === '你') {
-                const knownCards = [...state.centerCards, ...state.reserves].filter(Boolean);
-                const html = `<p>你查看了此刻的暗牌與備用牌。若暗牌之後被換走，你不會知道替換後的牌。</p>
-                    <div style="display:flex; gap:10px; margin-top:15px; justify-content:center; flex-wrap:wrap;">
-                        ${knownCards.map(c => renderCardFace(c, 'modal-card')).join('')}
-                    </div>
-                    <button onclick="closeModal(); updateUI(); endTurn();" style="width:100%; margin-top:15px; padding:10px; background:#10b981; border:none; border-radius:4px; color:white; font-weight:bold;">我知道了</button>`;
-                showModal('夢魘的視野', html);
-                return true;
-            }
-            break;
-        }
-        case 'NECROMANCER':
-            if (p.name === '你') {
-                showNecromancerModal(p);
-                return true;
-            }
-            if (state.discard.length > 0) {
-                const picked = state.discard.reduce((best, c, i, discard) =>
-                    (c.v || 0) > (discard[best].v || 0) ? i : best, 0);
-                const revived = state.discard.splice(picked, 1)[0];
-                p.front.push(revived);
-                log(`🧙 ${p.name} 透過【${joker.n}】復活了【${revived.n} (${revived.v})】。`, 'effect');
-            } else {
-                log(`🧙 ${p.name} 想發動【死靈法師】效果，但棄牌堆是空的。`, 'sys');
-            }
-            break;
-        case 'SUCCUBUS':
-            if (p.name === '你') {
-                showSuccubusModal(p);
-                return true;
-            }
-            {
-                const targets = state.players.filter(player => player.id !== p.id && !player.immune);
-                if (targets.length > 0) {
-                    const target = getAIStrategicTarget(p, targets);
-                    p.bindTo = target.id;
-                    log(`💖 ${p.name} 的【魅魔】效果選擇了【${target.name}】，觸發共同勝利綁定。`, 'succubus');
-                } else {
-                    log(`💖 ${p.name} 的【魅魔】效果找不到目標（全員免疫）。`, 'sys');
-                }
-            }
-            break;
-        case 'FRANKENSTEIN':
-            if (p.name === '你') {
-                showModal('科學怪人的效果', `
-                    <p>是否發動科學怪人效果，獲得額外回合？</p>
-                    <div style="display:flex; gap:10px; margin-top:15px;">
-                        <button onclick="confirmCopiedFrankenstein(true)" style="flex:1; padding:10px; background:#10b981; color:white; border:none; border-radius:4px;">獲得額外回合</button>
-                        <button onclick="confirmCopiedFrankenstein(false)" style="flex:1; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">不發動</button>
-                    </div>
-                `);
-                return true;
-            }
-            state.extraTurn = true;
-            state.skipFrankensteinOnce = true;
-            log(`⚡ ${p.name} 複製【科學怪人】效果，獲得額外回合。`, 'target');
-            break;
-        case 'SANDWORM':
-            if (p.name === '你') {
-                showSandwormModal(p);
-                return true;
-            }
-            {
-                const targets = state.players.filter(player =>
-                    player.id !== p.id && player.front.length > 0 && !player.immune);
-                if (targets.length > 0) {
-                    const target = getAIStrategicTarget(p, targets);
-                    const selected = getAIStrategicFrontCard(target);
-                    const stolen = target.front.splice(selected.index, 1)[0];
-                    p.front.push(stolen);
-                    log(`🃏 ${p.name} 透過【${joker.n}】發動【沙蟲】效果，從【${target.name}】奪取【${stolen.n}】。`, 'joker');
-                    offerStolenMinotaur(p, stolen);
-                } else {
-                    log(`🃏 ${p.name} 的【沙蟲】效果沒有可奪取的目標。`, 'sys');
-                }
-            }
-            break;
-        case 'GHOST':
-            if (p.name === '你') {
-                showCopiedGhostEffect(p);
-                return true;
-            }
-            {
-                const targets = state.players.filter(player => player.front.length > 0);
-                if (targets.length > 0) {
-                    const opponents = targets.filter(target => target.id !== p.id);
-                    const target = getAIStrategicTarget(p, opponents.length > 0 ? opponents : targets);
-                    const selected = getAIStrategicFrontCard(target);
-                    const moved = target.front.splice(selected.index, 1)[0];
-                    p.front.push(moved);
-                    log(`👻 ${p.name} 透過【${joker.n}】發動【幽靈】效果，移動了【${moved.n}】。`, 'sys');
-                } else {
-                    log(`👻【幽靈】效果沒有可移動的牌。`, 'sys');
-                }
-            }
-            break;
-        case 'ZOMBIE':
-            if (p.name === '你') {
-                showZombieModal(p, joker);
-                return true;
-            }
-            {
-                const targets = state.players.filter(player =>
-                    getZombieDiscardOptions(player, p.id, joker.uid).length > 0 && !player.immune);
-                if (targets.length > 0) {
-                    const opponents = targets.filter(target => target.id !== p.id);
-                    const target = getAIStrategicTarget(p, opponents.length > 0 ? opponents : targets);
-                    const options = getZombieDiscardOptions(target, p.id, joker.uid);
-                    const selected = options
-                        .map(option => ({
-                            ...option,
-                            threatReduction: getAIThreatReduction(target, option.index)
-                        }))
-                        .sort((a, b) =>
-                            b.threatReduction - a.threatReduction ||
-                            (b.card.v || 0) - (a.card.v || 0))[0];
-                    const removed = target.front.splice(selected.index, 1)[0];
-                    putToDiscard(removed, `${target.name} 因【喪屍】效果被迫棄掉面前的牌`);
-                } else {
-                    log(`🧟 ${p.name} 的【喪屍】效果找不到目標。`, 'sys');
-                }
-            }
-            break;
-        case 'SKELETON':
-            if (p.name === '你') {
-                showSkeletonModal(p);
-                return true;
-            }
-            {
-                const targets = getGuessTargets(p);
-                if (targets.length > 0) {
-                    const target = getAIStrategicTarget(p, targets);
-                    const targetCard = targetableHandCards(target)[0];
-                    const guess = Math.floor(Math.random() * 14);
-                    log(`💀 ${p.name} 的【骷髏】猜測【${target.name}】的手牌是 ${guess}。`, 'skeleton');
-                    if (!targetCard) {
-                        log(`🃏【${target.name}】手持小丑，骷髏猜牌效果不會觸發。`, 'sys');
-                    } else if (targetCard.v === guess) {
-                        target.hand.splice(target.hand.indexOf(targetCard), 1);
-                        p.front.push(targetCard);
-                        const drawn = forceDraw(target, false);
-                        if (drawn) target.hand.push(drawn);
-                        log(`✅ 猜測成功，${p.name} 將【${targetCard.n}】放到自己面前。`, 'skeleton');
-                    } else {
-                        log(`❌ 猜測失敗！`, 'skeleton');
-                    }
-                } else {
-                    log(`💀 ${p.name} 的【骷髏】效果沒有可猜測的目標。`, 'sys');
-                }
-            }
-            break;
-    }
-    return false;
-}
-
-function confirmCopiedFrankenstein(takeExtraTurn) {
-    state.extraTurn = takeExtraTurn;
-    state.skipFrankensteinOnce = takeExtraTurn;
-    closeModal();
-    updateUI();
-    endTurn();
-}
-
-// --- 沙蟲選擇彈窗 ---
-function showSandwormModal(p) {
-    const validOpps = state.players.filter(x => x.id !== p.id && x.front.length > 0 && !x.immune);
-    if (validOpps.length === 0) {
-        log(`🃏 你打出【沙蟲】，但沒有其他玩家面前有牌，效果不發動。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    let html = `<p>選擇要奪取的一張牌（來自其他玩家面前）：</p><div style="display:flex; flex-direction:column; gap:10px; margin-top:15px; max-height:300px; overflow-y:auto;">`;
-    validOpps.forEach(t => {
-        html += `<div style="background:#1e293b; padding:8px; border-radius:6px;"><div style="color:#93c5fd; margin-bottom:5px; font-size:12px; font-weight:bold;">${t.name} 面前：</div><div style="display:flex; flex-wrap:wrap; gap:5px;">`;
-        t.front.forEach((c, i) => {
-            html += `<button onclick="confirmSandworm(${t.id}, ${i})" style="padding:5px 10px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;"><span style="color:#fcd34d; font-weight:bold;">${c.v}</span> ${c.n}</button>`;
-        });
-        html += `</div></div>`;
-    });
-    html += `</div>`;
-    
-    showModal('沙蟲的掠奪', html);
-}
-
-function confirmSandworm(targetId, cardIndex) {
-    const p = state.players[state.currentTurn];
-    const target = state.players.find(x => x.id === targetId);
-    
-    if (target && target.front[cardIndex]) {
-        const stolen = target.front.splice(cardIndex, 1)[0];
-        p.front.push(stolen);
-        log(`🃏 ${p.name} 的【沙蟲】從【${target.name}】面前奪取了【${stolen.n} (${stolen.v})】放入自己面前。`, 'joker');
-        closeModal();
-        updateUI();
-        if (offerStolenMinotaur(p, stolen)) return;
-        endTurn();
-        return;
-    }
-    
-    closeModal();
-    updateUI();
-    endTurn();
-}
-
-function offerStolenMinotaur(player, card) {
-    if (card.id !== 'MINOTAUR') return false;
-
-    if (player.name !== '你') {
-        const index = player.front.findIndex(frontCard => frontCard.uid === card.uid);
-        if (index !== -1) {
-            const discarded = player.front.splice(index, 1)[0];
-            putToDiscard(discarded, `${player.name} 因【沙蟲】奪得【牛頭人】後選擇棄掉`);
-            state.extraTurn = true;
-            log(`🐂 ${player.name} 選擇棄掉奪得的【牛頭人】，獲得額外回合。`, 'target');
-        }
-        return false;
-    }
-
-    showModal('沙蟲取得牛頭人', `
-        <p>要立即棄掉剛奪得的【牛頭人】，以獲得額外回合嗎？</p>
-        <div style="display:flex; gap:10px; margin-top:15px;">
-            <button onclick="resolveStolenMinotaur(true, '${card.uid}')" style="flex:1; padding:10px; background:#10b981; color:white; border:none; border-radius:4px;">棄掉並獲得額外回合</button>
-            <button onclick="resolveStolenMinotaur(false, '${card.uid}')" style="flex:1; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">保留牛頭人</button>
-        </div>
-    `, { onCancel: false });
-    return true;
-}
-
-function resolveStolenMinotaur(discardForExtraTurn, cardUid) {
-    const player = state.players[state.currentTurn];
-    if (discardForExtraTurn) {
-        const index = player.front.findIndex(card => card.uid === cardUid && card.id === 'MINOTAUR');
-        if (index !== -1) {
-            const discarded = player.front.splice(index, 1)[0];
-            putToDiscard(discarded, `${player.name} 因【沙蟲】奪得【牛頭人】後選擇棄掉`);
-            state.extraTurn = true;
-            log(`🐂 ${player.name} 棄掉奪得的【牛頭人】，獲得額外回合。`, 'target');
-        }
-    } else {
-        log(`🐂 ${player.name} 選擇保留奪得的【牛頭人】。`, 'sys');
-    }
-    closeModal();
-    updateUI();
-    endTurn();
-}
-
-// --- 死靈法師選擇彈窗 ---
-function showNecromancerModal(p) {
-    if (state.discard.length === 0) {
-        log(`🧙 你打出【死靈法師】，但棄牌堆是空的，效果不發動。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    showModal('死靈法師的召喚', `
-        <p>選擇一張棄牌區的牌，將其放入自己面前區：</p>
-        <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; max-height:300px; overflow-y:auto;">
-            ${state.discard.map((c, i) => `
-                <button onclick="confirmNecromancer(${i})" style="padding:10px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer; display:flex; flex-direction:column; align-items:center;">
-                    <span style="font-size:18px; font-weight:bold; color:#fcd34d;">${c.v}</span>
-                    <span style="font-size:12px;">${c.n}</span>
-                </button>
-            `).join('')}
-        </div>
-    `);
-}
-
-function confirmNecromancer(discardIndex) {
-    const p = state.players[state.currentTurn];
-    const picked = state.discard.splice(discardIndex, 1)[0];
-    
-    if (picked) {
-        p.front.push(picked);
-        log(`🧙 ${p.name} 的【死靈法師】從棄牌堆復活了【${picked.n} (${picked.v})】放入自己面前。`, 'effect');
-    }
-    
-    closeModal();
-    updateUI();
-    endTurn();
-}
-
-function showSeaMonsterModal(p) {
-    if (state.deck.length === 0) {
-        log(`🌊 ${p.name} 的【海怪】查看牌堆頂，但牌堆已空，效果不發動。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    const revealed = state.deck.pop();
-    if (p.hand.length === 0) {
-        state.deck.push(revealed);
-        log(`🌊 ${p.name} 的【海怪】查看了牌堆頂的【${revealed.n}】，但沒有手牌可交換；牌放回牌堆頂。`, 'sys');
-        updateUI();
-        endTurn();
-        return;
-    }
-
-    state.pendingSeaMonsterCard = { playerId: p.id, card: revealed };
-    const handChoices = p.hand.map((handCard, index) => `
-        <button onclick="confirmSeaMonsterSwap(${index})" style="padding:8px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer;">
-            與【${handCard.n} (${handCard.v})】交換
+function SuitIcon({ c, className }) {
+    return <svg className={className} viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d={SUIT_PATH[c.suit] || SUIT_PATH.star} /></svg>;
+}
+function Chip({ c, onClick, hl }) {
+    const peek = useContext(PeekCtx);
+    const cls = UI.CH.chip + (hl ? ' ' + UI.CH.chipHl : '');
+    const body = (
+        <>
+            <span className={'gothic-num ' + UI.CH.chipNum}>{c.v}</span>
+            <span className={suitCls(c)}>{sym(c)}</span>
+            <span className={UI.CH.chipName}>{c.n}</span>
+        </>
+    );
+    if (!onClick) return <button onClick={() => peek && peek(c)} className={cls}>{body}</button>;
+    return ( // 可選取的牌：另附 i 鈕看詳情
+        <span className="inline-flex items-center gap-[1px] shrink-0 max-w-full">
+            <button onClick={onClick} className={cls}>{body}</button>
+            <button onClick={e => { e.stopPropagation(); peek && peek(c); }} className="w-[14px] h-[18px] rounded border border-slate-500/60 bg-slate-800/90 text-[9px] leading-none text-slate-300 active:scale-95">i</button>
+        </span>
+    );
+}
+// 小牌（與面前區同款 cards.jpg 牌面；back = 牌背 cardb.jpg）：用於暗牌／備用牌／棄牌堆視窗
+function SmallCard({ c, back, onClick, label }) {
+    const peek = useContext(PeekCtx);
+    const sz = { width: 72, height: 96 };
+    if (back) return <button style={sz} onClick={onClick} className="card-back shrink-0 flex items-center justify-center text-amber-200/90 text-lg font-black shadow active:scale-95">{label || ''}</button>;
+    return (
+        <button style={sz} onClick={onClick || (() => peek && peek(c))} className="front-card-bg bg-slate-900 shrink-0 shadow flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 active:scale-95">
+            <span className={UI.E.e55}>{c.v}</span>
+            <span className={'text-2xl ' + suitCls(c)}>{sym(c) || '✦'}</span>
+            <span className={UI.E.e57}>{c.n}</span>
         </button>
-    `).join('');
-    showModal('海怪查看牌堆頂', `
-        <p>牌堆頂是以下這張牌：</p>
-        <div style="display:flex; justify-content:center; margin:10px;">${renderCardFace(revealed, 'modal-card')}</div>
-        <p>選擇是否與一張手牌交換：</p>
-        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">${handChoices}</div>
-        <button onclick="confirmSeaMonsterSwap(-1)" style="width:100%; margin-top:12px; padding:10px; background:#475569; color:white; border:none; border-radius:4px; cursor:pointer;">不交換，放回牌堆頂</button>
-    `);
+    );
 }
-
-function confirmSeaMonsterSwap(handIndex) {
-    const pending = state.pendingSeaMonsterCard;
-    const p = state.players.find(player => player.id === pending?.playerId);
-    if (!pending || !p || state.players[state.currentTurn]?.id !== p.id) {
-        log(`🌊 海怪效果取消：待交換的牌或玩家已不存在。`, 'sys');
-        state.pendingSeaMonsterCard = null;
-        closeModal();
-        updateUI();
-        return;
-    }
-
-    if (handIndex >= 0 && p.hand[handIndex]) {
-        const returned = p.hand[handIndex];
-        p.hand[handIndex] = pending.card;
-        state.deck.push(returned);
-        log(`🌊 ${p.name} 的【海怪】將牌堆頂的【${pending.card.n}】與手牌【${returned.n}】交換；原手牌放到牌堆頂。`, 'effect');
-    } else {
-        state.deck.push(pending.card);
-        log(`🌊 ${p.name} 的【海怪】將【${pending.card.n}】放回牌堆頂。`, 'sys');
-    }
-
-    state.pendingSeaMonsterCard = null;
-    closeModal();
-    updateUI();
-    endTurn();
-}
-
-function resolveSeaMonsterForAI(p) {
-    if (state.deck.length === 0) {
-        log(`🌊 ${p.name} 的【海怪】效果不發動，因為牌堆已空。`, 'sys');
-        return;
-    }
-
-    const revealed = state.deck.pop();
-    if (p.hand.length > 0 && Math.random() < 0.5) {
-        const handIndex = Math.floor(Math.random() * p.hand.length);
-        const returned = p.hand[handIndex];
-        p.hand[handIndex] = revealed;
-        state.deck.push(returned);
-        log(`🌊 ${p.name} 的【海怪】查看牌堆頂並與手牌【${returned.n}】交換。`, 'effect');
-    } else {
-        state.deck.push(revealed);
-        log(`🌊 ${p.name} 的【海怪】查看牌堆頂後選擇不交換。`, 'sys');
-    }
-}
-
-// --- 奇美拉選擇彈窗 ---
-function showChimeraModal(p) {
-    const validTargets = state.players.filter(x => !x.immune);
-    if(validTargets.length === 0) {
-        log(`🦁 你打出【奇美拉】，但全場玩家都免疫了，效果不發動。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    showModal('奇美拉的凝視', `
-        <p>選擇一位玩家（可選自己），該玩家必須將手牌放置到面前區，並從牌庫重抽 1 張。</p>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:15px; flex-wrap:wrap;">
-            ${validTargets.map(t => `<button onclick="confirmChimera(${t.id})" style="padding:10px 20px; background:#f97316; color:white; border:none; border-radius:4px; cursor:pointer;">${t.name}</button>`).join('')}
+// 對手面前區：cards.jpg 牌面疊放；前面的牌只露出上方摺疊條（數字＋花式＋牌名），最後一張完整顯示
+function OppFront({ cards, cs }) {
+    const peek = useContext(PeekCtx);
+    const n = cards.length;
+    if (!n) return <span className={UI.CH.oppEmpty}>—</span>;
+    const step = n <= 1 ? 0 : Math.max(11, Math.min(17, Math.floor(54 / (n - 1))));
+    return (
+        <div className="relative w-full max-w-[72px] mx-auto" style={{ height: (n - 1) * step + 96 }}>
+            {cards.map((c, i) => {
+                const last = i === n - 1, hl = cs.has(c.uid) ? ' front-card-active' : '';
+                if (last) return (
+                    <button key={c.uid || i} data-uid={c.uid} onClick={() => peek && peek(c)} style={{ top: i * step, height: 96, zIndex: i }}
+                        className={'absolute left-0 w-full front-card-bg bg-slate-900 shadow flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 active:scale-95' + hl}>
+                        <span className={UI.E.e55}>{c.v}</span>
+                        <span className={'text-2xl ' + suitCls(c)}>{sym(c) || '✦'}</span>
+                        <span className={UI.E.e57}>{c.n}</span>
+                    </button>
+                );
+                return (
+                    <button key={c.uid || i} data-uid={c.uid} onClick={() => peek && peek(c)} style={{ top: i * step, height: step + 3, zIndex: i }}
+                        className={'absolute left-0 w-full front-card-top bg-slate-900 shadow flex items-center overflow-hidden active:scale-95' + hl}>
+                        <span className="shrink-0 flex items-center gap-[2px] gothic-num font-black text-amber-300 text-[10px] leading-none pl-[15px]"><span className={'text-[9px] ' + suitCls(c)}>{sym(c) || '✦'}</span>{c.v}</span>
+                        <span className={'flex-1 min-w-0 text-left font-black text-amber-100 leading-none whitespace-nowrap overflow-hidden pl-[2px] pr-[12px] ' + (c.n.length >= 4 ? 'text-[7px] tracking-[-0.4px]' : c.n.length === 3 ? 'text-[8px]' : 'text-[9px]')}>{c.n}</span>
+                    </button>
+                );
+            })}
         </div>
-    `);
+    );
 }
-
-function confirmChimera(targetId) {
-    const p = state.players[state.currentTurn];
-    const target = state.players.find(x => x.id === targetId);
-    
-    log(`🦁 ${p.name} 的【奇美拉】選擇了【${target.name}】。`, 'chimera');
-    closeModal();
-    executeChimeraEffect(target);
-    updateUI();
-    endTurn();
-}
-
-function executeChimeraEffect(target) {
-    if (target.immune) {
-        log(`　- ${target.name} 獲得【石像鬼】免疫，不受影響。`, 'immune');
-        return;
-    }
-    
-    const handCards = targetableHandCards(target);
-    if (handCards.length > 0) {
-        target.hand = target.hand.filter(isJokerCard);
-        target.front.push(...handCards);
-        log(`➔ ${target.name} 將手牌 [${handCards.map(c=>c.n).join(', ')}] 放到了面前區。`, 'chimera');
-    }
-
-    if (target.hand.length === 0) {
-        const drawn = forceDraw(target, false);
-        if (drawn) {
-            target.hand.push(drawn);
-            log(`➔ ${target.name} 從牌庫重抽了 1 張牌。`, 'chimera');
-        }
-    }
-}
-
-// --- 骷髏選擇彈窗 ---
-function showSkeletonModal(p) {
-    const targets = getGuessTargets(p);
-    if (targets.length === 0) {
-        log(`💀 你打出【骷髏】，但沒有其他有手牌且未免疫的玩家可選，效果不發動。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    showModal('骷髏的猜測', `
-        <p>選擇一位玩家，猜兩個手牌數值 (0-13)；任一猜中非小丑手牌即成功。</p>
-        ${renderUnplayedCardHint(p)}
-        <div style="margin-bottom:15px;">
-            <label>選擇玩家：</label>
-            <select id="skel-target" style="width:100%; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">
-                ${targets.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
-            </select>
-        </div>
-        <div style="margin-bottom:15px;">
-            <label>第一個數值：</label>
-            <input type="number" id="skel-guess-1" min="0" max="13" value="5" style="width:100%; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">
-            <label>第二個數值：</label>
-            <input type="number" id="skel-guess-2" min="0" max="13" value="8" style="width:100%; padding:5px; background:#1e293b; color:white; border:1px solid #475569;">
-        </div>
-        <div style="display:flex; gap:10px; justify-content:center;">
-            <button onclick="confirmSkeletonGuess()" style="flex:1; padding:10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;">確認猜測</button>
-        </div>
-    `);
-}
-
-function confirmSkeletonGuess() {
-    const p = state.players[state.currentTurn];
-    const targetId = parseInt(document.getElementById('skel-target').value);
-    const guesses = [
-        Number(document.getElementById('skel-guess-1').value),
-        Number(document.getElementById('skel-guess-2').value)
-    ];
-    const target = state.players.find(x => x.id === targetId);
-    if (!target || !getGuessTargets(p).some(candidate => candidate.id === target.id) ||
-        guesses.some(value => !Number.isInteger(value) || value < 0 || value > 13)) {
-        log(`💀 請選擇有效玩家，並輸入兩個 0 至 13 的整數。`, 'sys');
-        return;
-    }
-    
-    log(`💀 ${p.name} 的【骷髏】猜測【${target.name}】的手牌數值是 ${guesses.join('、')}。`, 'skeleton');
-    
-    const targetCards = targetableHandCards(target);
-    const matchedCard = targetCards.find(card => guesses.includes(card.v));
-    if (targetCards.length === 0) {
-        log(`🃏【${target.name}】手持小丑，骷髏猜牌效果不會觸發。`, 'sys');
-    } else if (matchedCard) {
-        log(`✅ 猜測成功！${p.name} 將【${target.name}】的【${matchedCard.n}】搶到了自己面前。`, 'skeleton');
-        const stolen = target.hand.splice(target.hand.indexOf(matchedCard), 1)[0];
-        p.front.push(stolen);
-        const drawn = forceDraw(target, false);
-        if (drawn) {
-            target.hand.push(drawn);
-            log(`➔ ${target.name} 被猜中手牌，從牌庫抽了 1 張牌補回手牌。`, 'skeleton');
-        }
-    } else {
-        log(`❌ 猜測失敗！【${target.name}】的非小丑手牌沒有 ${guesses.join(' 或 ')}。`, 'skeleton');
-    }
-    
-    closeModal();
-    updateUI();
-    endTurn();
-}
-
-// --- 魅魔選擇彈窗 ---
-function showSuccubusModal(p) {
-    const targets = state.players.filter(x => x.id !== p.id && !x.immune);
-    if (targets.length === 0) {
-        log(`💖 你打出【魅魔】，但沒有其他玩家可選（皆已免疫），效果不發動。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    showModal('魅魔的秘密選擇', `
-        <p>請選擇一位玩家，如果該玩家勝利，你也將一起勝利。</p>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:15px;">
-            ${targets.map(t => `<button onclick="confirmSuccubus(${t.id})" style="padding:10px 20px; background:#d946ef; color:white; border:none; border-radius:4px; cursor:pointer;">${t.name}</button>`).join('')}
-        </div>
-    `);
-}
-
-function confirmSuccubus(targetId) {
-    const p = state.players[state.currentTurn];
-    const target = state.players.find(x => x.id === targetId);
-    p.bindTo = targetId;
-    
-    log(`💖 ${p.name} 的【魅魔】秘密選擇了【${target.name}】，該玩家勝利時 ${p.name} 也將一起勝利！`, 'succubus');
-    
-    closeModal();
-    updateUI();
-    endTurn(); 
-}
-
-// --- 牛頭人選擇彈窗 ---
-function showMinotaurModal(p) {
-    const targets = state.players.filter(x => x.id !== p.id && targetableHandCards(x).length > 0 && !x.immune);
-    if (targets.length === 0) {
-        log(`🐂 你打出【牛頭人】，但沒有其他玩家可選（無手牌或已免疫）。`, 'sys');
-        log(`➔ ${p.name} 獲得額外回合！`, 'target');
-        state.extraTurn = true;
-        endTurn();
-        return;
-    }
-
-    showModal('牛頭人的偷窺', `
-        <p>選擇一位玩家查看手牌（若對方有手牌，可選擇是否交換）：</p>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:15px; flex-wrap:wrap;">
-            ${targets.map(t => `<button onclick="viewMinotaurTarget(${t.id})" style="padding:10px 20px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer;">查看 ${t.name} 的手牌</button>`).join('')}
-        </div>
-    `);
-}
-
-function viewMinotaurTarget(targetId) {
-    const p = state.players[state.currentTurn];
-    const target = state.players.find(x => x.id === targetId);
-    if (!target || targetableHandCards(target).length === 0) return;
-
-    const myCard = targetableHandCards(p)[0];
-    const targetCard = targetableHandCards(target)[0];
-    
-    log(`🐂 ${p.name} 查看了【${target.name}】不受小丑保護的手牌。`, 'target');
-
-    showModal('是否交換？', `
-        <div style="display:flex; justify-content:center; gap:20px; margin:20px 0;">
-            <div style="text-align:center;">
-                <div>你的手牌</div>
-                ${myCard ? renderCardFace(myCard, 'modal-card-large') : '<div>只有小丑，不能交換</div>'}
-            </div>
-            <div style="text-align:center;">
-                <div>對方手牌</div>
-                ${renderCardFace(targetCard, 'modal-card-large')}
+const BackCtx = React.createContext(null); // 選擇彈窗的「返回上一步」
+function Modal({ title, onClose, children }) {
+    const back = useContext(BackCtx);
+    return (
+        <div className={UI.CH.m01} onClick={onClose}>
+            <div className={UI.CH.m02} onClick={e => e.stopPropagation()}>
+                {title && <div className={UI.CH.m03}>{title}</div>}
+                {children}
+                {back && !onClose && <button className={UI.CH.btnGhost + ' mt-2 w-full'} onClick={back}>↩ 返回上一步</button>}
+                {onClose && <button className={UI.CH.btnGhost + ' mt-2 w-full'} onClick={onClose}>關閉</button>}
             </div>
         </div>
-        <div style="display:flex; gap:10px; justify-content:center;">
-            ${myCard ? `<button onclick="confirmMinotaurSwap(${targetId}, true)" style="padding:10px 20px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;">交換手牌</button>` : '<span>你手上只有小丑，不能交換。</span>'}
-            <button onclick="confirmMinotaurSwap(${targetId}, false)" style="padding:10px 20px; background:#475569; color:white; border:none; border-radius:4px; cursor:pointer;">不交換</button>
+    );
+}
+function CardDetail({ c, after, onClose }) {
+    const gd = GUIDE[c.id] || {};
+    return (
+        <Modal title={`${sym(c)} ${c.n}　點數 ${c.v}`} onClose={onClose}>
+            {gd.victory && <div className={UI.CH.m04}><b className="text-amber-300">勝利條件：</b>{gd.victory}</div>}
+            {gd.effect && <div className={UI.CH.m04}><b className="text-fuchsia-300">效果：</b>{gd.effect}</div>}
+            {after && after.length > 0 && <div className={UI.CH.tenpaiText}>打出後會叫糊：{after.join('、')}</div>}
+        </Modal>
+    );
+}
+function GuideModal({ name, onClose }) {
+    const gd = GUIDE_BY_NAME[name] || {};
+    return (
+        <Modal title={name} onClose={onClose}>
+            {gd.victory && <div className={UI.CH.m04}><b className="text-amber-300">勝利條件：</b>{gd.victory}</div>}
+            {gd.effect && <div className={UI.CH.m04}><b className="text-fuchsia-300">效果：</b>{gd.effect}</div>}
+        </Modal>
+    );
+}
+function TenpaiNames({ names, onPick }) {
+    return <>{names.map((n, i) => <span key={n}>{i > 0 && '、'}<span className={UI.CH.tenpaiName} onClick={() => onPick(n)}>{n}</span></span>)}</>;
+}
+function NumPad({ g, picks, onPick }) { // 1–13 只顯示一次；picks 為已選順序（第 1 個、第 2 個）；每格列出尚未出現的牌
+    const left = E.unplayedCards(g, g.players[HUMAN]);
+    return (
+        <div className="grid grid-cols-4 gap-1.5 my-2">
+            {Array.from({ length: 13 }, (_, k) => k + 1).map(i => {
+                const names = left.filter(o => o.value === i);
+                const order = picks.indexOf(i);
+                const on = order >= 0;
+                return (
+                    <button key={i} onClick={() => onPick(i)}
+                        className={`relative min-h-[52px] rounded-md border px-1 py-1 flex flex-col items-center justify-center active:scale-95 ${on ? 'bg-amber-500 border-amber-200 text-slate-950' : 'bg-slate-800/90 border-slate-600 text-slate-200'} ${names.length === 0 && !on ? 'opacity-45' : ''}`}>
+                        {on && <span className="absolute top-0.5 right-1 text-[9px] font-black text-slate-950 bg-white/80 rounded-full w-[14px] h-[14px] leading-[14px] text-center">{order + 1}</span>}
+                        <span className="gothic-num text-[15px] font-black leading-none">{i}</span>
+                        <span className={`mt-0.5 text-[8.5px] leading-tight text-center ${on ? 'text-slate-900' : 'text-slate-400'}`}>{names.length ? names.map(o => o.name + (o.count > 1 ? '×' + o.count : '')).join('、') : '—'}</span>
+                    </button>
+                );
+            })}
         </div>
-    `);
+    );
 }
-
-function confirmMinotaurSwap(targetId, doSwap) {
-    const p = state.players[state.currentTurn];
-    const target = state.players.find(x => x.id === targetId);
-    
-    const myCard = targetableHandCards(p)[0];
-    const targetCard = targetableHandCards(target)[0];
-    if (doSwap && myCard && targetCard) {
-        p.hand[p.hand.indexOf(myCard)] = targetCard;
-        target.hand[target.hand.indexOf(targetCard)] = myCard;
-        log(`🔄 ${p.name} 與【${target.name}】交換手牌！你取得了 ${targetCard.n}，對方取得了 ${myCard.n}。`, 'effect');
-    } else {
-        log(`🚫 ${p.name} 決定不與【${target.name}】交換手牌。`, 'sys');
-    }
-    
-    log(`➔ ${p.name} 獲得額外回合！`, 'target');
-    state.extraTurn = true;
-    
-    closeModal();
-    updateUI();
-    endTurn();
-}
-
-// --- 結束回合與換人 ---
-function endTurn() {
-    if (state.gameOver) return;
-
-    const p = state.players[state.currentTurn];
-    
-    const hasFrankenstein = !state.skipFrankensteinOnce && p.front.some(c => c.id === 'FRANKENSTEIN');
-    state.skipFrankensteinOnce = false;
-    if (hasFrankenstein) {
-        if (p.name === '你') {
-            endTurnWithFrankenstein(p);
-            return; 
-        } else {
-            if (Math.random() > 0.5) {
-                log(`🤖 ${p.name} 決定棄掉面前的【科學怪人】，獲得額外回合！`, 'win');
-                const idx = p.front.findIndex(c => c.id === 'FRANKENSTEIN');
-                const removed = p.front.splice(idx, 1)[0];
-                putToDiscard(removed, `${p.name} 棄掉面前的【科學怪人】`);
-                state.extraTurn = true;
-            } else {
-                log(`🤖 ${p.name} 決定保留【科學怪人】在面前。`);
-            }
-        }
-    }
-
-    if (!state.extraTurn) {
-        state.currentTurn = (state.currentTurn + 1) % state.players.length;
-    } else {
-        log(`✨ ${state.players[state.currentTurn].name} 獲得額外回合！`, 'win');
-        state.extraTurn = false;
-    }
-    
-    state.uiState = 'DRAW_PHASE'; 
-    updateUI();
-
-    if (state.players[state.currentTurn].name !== '你') {
-        state.waitForPlayerAck = true;
-        document.getElementById('turn-indicator').innerText = `等待確認...`;
-        document.getElementById('global-controls').innerHTML = `
-            <button onclick="acknowledgeAI()" style="background:#10b981; padding:12px 24px; font-size:16px; border-radius:8px;">👉 點擊繼續 (輪到 ${state.players[state.currentTurn].name})</button>
-        `;
-    } else {
-        setTimeout(startTurn, 500);
-    }
-}
-
-function acknowledgeAI() {
-    state.waitForPlayerAck = false;
-    document.getElementById('global-controls').innerHTML = '';
-    startTurn();
-}
-
-// --- 科學怪人彈窗 ---
-function endTurnWithFrankenstein(p) {
-    showModal('科學怪人', `
-        <p>是否棄掉面前的【科學怪人】，以獲得額外回合？</p>
-        <div style="margin-top:15px; display:flex; gap:10px;">
-            <button onclick="discardFrankenstein()" style="flex:1; padding:10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;">棄掉並獲得額外回合</button>
-            <button onclick="keepFrankenstein()" style="flex:1; padding:10px; background:#475569; color:white; border:none; border-radius:4px; cursor:pointer;">保留並結束回合</button>
+// 點數選擇：第 1 下 = 第一個數值，第 2 下 = 第二個數值；再點已選的數值＝取消；已選滿 2 個再點＝重新開始
+const nextPicks = (picks, v) => picks.includes(v) ? picks.filter(x => x !== v) : picks.length >= 2 ? [v] : [...picks, v];
+function PlayerBtns({ g, ids, onPick }) {
+    return (
+        <div className={UI.CH.m05}>
+            {ids.map(id => <button key={id} className={UI.CH.btnTarget} onClick={() => onPick(id)}>{g.players[id].name}</button>)}
         </div>
-    `);
+    );
 }
-
-function discardFrankenstein() {
-    const p = state.players[state.currentTurn];
-    const idx = p.front.findIndex(c => c.id === 'FRANKENSTEIN');
-    if (idx !== -1) {
-        const removed = p.front.splice(idx, 1)[0];
-        putToDiscard(removed, `${p.name} 棄掉了面前的【科學怪人】`);
-        state.extraTurn = true;
-        log(`➔ ${p.name} 獲得額外回合！`, 'target');
-    }
-    closeModal(); 
-    updateUI(); 
-    endTurnAfterFrankenstein();
-}
-
-function keepFrankenstein() {
-    closeModal();
-    state.extraTurn = false;
-    endTurnAfterFrankenstein();
-}
-
-function endTurnAfterFrankenstein() {
-    if (!state.extraTurn) {
-        state.currentTurn = (state.currentTurn + 1) % state.players.length;
-    } else {
-        log(`✨ ${state.players[state.currentTurn].name} 獲得額外回合！`, 'win');
-        state.extraTurn = false;
-    }
-    state.uiState = 'DRAW_PHASE'; 
-    updateUI();
-    setTimeout(startTurn, 500);
-}
-
-// --- 牌庫抽完結算 ---
-function checkDeckEmpty() {
-    let cthulhuPlayer = null;
-    state.players.forEach(p => {
-        const hasCthulhu = p.hand.some(c => c.id === 'CTHULHU');
-        if (hasCthulhu) cthulhuPlayer = p;
-    });
-
-    if (cthulhuPlayer) {
-        declareWinner(cthulhuPlayer, `牌庫抽完！${cthulhuPlayer.name} 持有【克蘇魯】，獲得勝利！`);
-        return;
-    }
-
-    const ghostPlayer = state.players.find(p => p.hand.some(c => c.id === 'GHOST'));
-    if (ghostPlayer) {
-        state.pendingGhost = ghostPlayer;
-        log(`👻 牌庫抽完！${ghostPlayer.name} 持有【幽靈】，可以移動面前區的一張牌！`, 'sys');
-        if (ghostPlayer.name === '你') {
-            showGhostModal(ghostPlayer);
-        } else {
-            const validPlayers = state.players.filter(x => x.front.length > 0);
-            if (validPlayers.length > 0) {
-                const targetP = validPlayers[Math.floor(Math.random() * validPlayers.length)];
-                const cardIdx = Math.floor(Math.random() * targetP.front.length);
-                const moved = targetP.front.splice(cardIdx, 1)[0];
-                ghostPlayer.front.push(moved);
-                log(`👻 ${ghostPlayer.name} 的【幽靈】隨機將【${targetP.name}】面前的【${moved.n}】移動到了自己面前。`, 'sys');
-            }
-            finishDeckEmptySettlement();
-        }
-        return;
-    }
-
-    finishDeckEmptySettlement();
-}
-
-function showGhostModal(p) {
-    let html = `<p>你是【幽靈】，請選擇任一位玩家（包含自己）面前的一張牌，移動到你自己面前：</p>`;
-    html += `<div style="display:flex; flex-direction:column; gap:10px; margin-top:15px; max-height:300px; overflow-y:auto;">`;
-    state.players.forEach(t => {
-        if (t.front.length > 0) {
-            html += `<div style="background:#1e293b; padding:8px; border-radius:6px;"><div style="color:#93c5fd; margin-bottom:5px; font-size:12px; font-weight:bold;">${t.name} 面前：</div><div style="display:flex; flex-wrap:wrap; gap:5px;">`;
-            t.front.forEach((c, i) => {
-                html += `<button onclick="confirmGhostMove(${t.id}, ${i})" style="padding:5px 10px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;"><span style="color:#fcd34d; font-weight:bold;">${c.v}</span> ${c.n}</button>`;
-            });
-            html += `</div></div>`;
-        }
-    });
-    html += `</div>`;
-    html += `<div style="margin-top:15px;"><button onclick="skipGhostMove()" style="width:100%; padding:10px; background:#475569; color:white; border:none; border-radius:4px; cursor:pointer;">不移動，直接結算</button></div>`;
-    showModal('幽靈的移動', html);
-}
-
-function confirmGhostMove(targetId, cardIndex) {
-    const p = state.pendingGhost;
-    const target = state.players.find(x => x.id === targetId);
-    
-    if (target && target.front[cardIndex]) {
-        const moved = target.front.splice(cardIndex, 1)[0];
-        p.front.push(moved);
-        log(`👻 ${p.name} 的【幽靈】將【${target.name}】面前的【${moved.n} (${moved.v})】移動到了自己面前。`, 'sys');
-    }
-    
-    closeModal();
-    finishDeckEmptySettlement();
-}
-
-function skipGhostMove() {
-    const p = state.pendingGhost;
-    log(`👻 ${p.name} 的【幽靈】放棄了移動。`, 'sys');
-    closeModal();
-    finishDeckEmptySettlement();
-}
-
-function showCopiedGhostEffect(p) {
-    const targets = state.players.filter(player => player.front.length > 0);
-    if (targets.length === 0) {
-        log(`👻 你發動【幽靈】效果，但沒有可移動的牌。`, 'sys');
-        endTurn();
-        return;
-    }
-
-    const html = `<p>選擇任一玩家面前的一張牌，移動到自己面前：</p>
-        <div style="display:flex; flex-direction:column; gap:10px; margin-top:15px; max-height:300px; overflow-y:auto;">
-            ${targets.map(target => `
-                <div style="background:#1e293b; padding:8px; border-radius:6px;">
-                    <div style="color:#93c5fd; margin-bottom:5px; font-size:12px; font-weight:bold;">${target.name} 面前：</div>
-                    <div style="display:flex; flex-wrap:wrap; gap:5px;">
-                        ${target.front.map((card, index) => `
-                            <button onclick="confirmCopiedGhostMove(${target.id}, ${index})" style="padding:5px 10px; background:#3b4754; color:white; border:none; border-radius:4px; cursor:pointer;">
-                                ${SUIT_SYMBOLS[card.suit] || ''}${card.n}
-                            </button>`).join('')}
+function FrontPicker({ g, entries, onPick }) { // entries: [{playerId, index}]
+    const ids = [...new Set(entries.map(e => e.playerId))];
+    return (
+        <div>
+            {ids.map(pid => (
+                <div key={pid}>
+                    <div className={UI.CH.sectionTitle}>{g.players[pid].name} 面前</div>
+                    <div className={UI.CH.m05}>
+                        {entries.filter(e => e.playerId === pid).map(e => <Chip key={e.index} c={g.players[pid].front[e.index]} onClick={() => onPick(pid, e.index)} />)}
                     </div>
-                </div>`).join('')}
-        </div>`;
-    showModal('幽靈的移動', html);
+                </div>
+            ))}
+        </div>
+    );
 }
-
-function confirmCopiedGhostMove(targetId, cardIndex) {
-    const p = state.players[state.currentTurn];
-    const target = state.players.find(player => player.id === targetId);
-    if (target && target.front[cardIndex]) {
-        const moved = target.front.splice(cardIndex, 1)[0];
-        p.front.push(moved);
-        log(`👻 ${p.name} 透過小丑發動【幽靈】效果，將【${target.name}】面前的【${moved.n}】移動到自己面前。`, 'sys');
+function UnplayedHint({ g }) { // 尚未公開的牌（扣除棄牌、所有面前牌及你的手牌）
+    const list = E.unplayedCards(g, g.players[HUMAN]);
+    const peek = useContext(PeekCtx);
+    return (
+        <div className="rounded-md bg-slate-800/80 border border-slate-600/60 p-1.5 my-1.5">
+            <div className="text-[10px] font-black text-amber-300">尚未公開的牌（扣除棄牌、面前牌及你的手牌）</div>
+            <div className="flex flex-wrap gap-[3px] mt-1">
+                {list.length === 0 ? <span className={UI.CH.oppEmpty}>沒有可列出的牌</span>
+                    : list.map(o => <button key={o.name + o.value} onClick={() => peek && peek({ id: (GUIDE_BY_NAME[o.name] || {}).id, n: o.name, v: o.value })} className="text-[9px] leading-none rounded border border-slate-600/70 bg-slate-900/85 px-1 py-[3px] text-amber-200 active:scale-95">{o.value} {o.name} ×{o.count}</button>)}
+            </div>
+        </div>
+    );
+}
+function SkeletonDialog({ g, pr, ans }) {
+    const [t, setT] = useState(pr.targets[0]);
+    const [picks, setPicks] = useState([]);
+    return (
+        <Modal title="骷髏的猜測">
+            <div className={UI.CH.m04}>選一位玩家，依序點選兩個手牌點數 (1–13，格內是尚未出現的牌)；任一猜中其非小丑手牌，就把該牌搶到自己面前。對方只有小丑時效果不觸發。</div>
+            <PlayerBtns g={g} ids={pr.targets} onPick={setT} />
+            <div className={UI.CH.m04}>目標：<b className="text-sky-300">{g.players[t].name}</b>　第一個：<b className="text-amber-300">{picks[0] ?? '—'}</b>　第二個：<b className="text-amber-300">{picks[1] ?? '—'}</b></div>
+            <NumPad g={g} picks={picks} onPick={v => setPicks(p => nextPicks(p, v))} />
+            <button className={UI.CH.btn + ' w-full'} disabled={picks.length < 2} onClick={() => ans({ targetId: t, guesses: [picks[0], picks[1]] })}>確定</button>
+        </Modal>
+    );
+}
+function HellLordDialog({ g, pr, ans }) {
+    const [t1, setT1] = useState(pr.targets[0]);
+    const [t2, setT2] = useState(pr.targets[1]);
+    const [picks, setPicks] = useState([]);
+    const ok = t1 !== t2 && picks.length === 2;
+    return (
+        <Modal title="地獄領主的猜測">
+            <div className={UI.CH.m04}>選兩位不同玩家（有手牌且未免疫），再依序點選兩個點數：第 1 下猜第一位、第 2 下猜第二位 (1–13){pr.canWin ? '；兩次都猜中即獲勝。' : '。'}對方只有小丑時該次不觸發。</div>
+            <div className={UI.CH.sectionTitle}>第一位</div>
+            <PlayerBtns g={g} ids={pr.targets} onPick={setT1} />
+            <div className={UI.CH.sectionTitle}>第二位</div>
+            <PlayerBtns g={g} ids={pr.targets} onPick={setT2} />
+            <div className={UI.CH.m04}>{g.players[t1].name}：<b className="text-amber-300">{picks[0] ?? '—'}</b>　{g.players[t2].name}：<b className="text-amber-300">{picks[1] ?? '—'}</b></div>
+            <NumPad g={g} picks={picks} onPick={v => setPicks(p => nextPicks(p, v))} />
+            {t1 === t2 && <div className={UI.CH.toast}>兩次必須選不同玩家</div>}
+            <button className={UI.CH.btn + ' w-full'} disabled={!ok} onClick={() => ans({ guesses: [{ targetId: t1, value: picks[0] }, { targetId: t2, value: picks[1] }] })}>確定</button>
+        </Modal>
+    );
+}
+function PromptDialog({ g, pr, dispatch }) {
+    const ans = o => dispatch({ type: 'answer', ...o });
+    const me = g.players[HUMAN];
+    switch (pr.type) {
+        case 'frankenstein':
+            return (<Modal title="科學怪人"><div className={UI.CH.m04}>回合結束。要棄掉面前的【科學怪人】來獲得額外回合嗎？</div>
+                <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={() => ans({ discard: true })}>棄掉，額外回合</button><button className={UI.CH.btnGhost} onClick={() => ans({ discard: false })}>保留</button></div></Modal>);
+        case 'frankensteinCopy':
+            return (<Modal title="科學怪人（小丑複製）"><div className={UI.CH.m04}>是否發動科學怪人效果，獲得額外回合？</div>
+                <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={() => ans({ take: true })}>發動</button><button className={UI.CH.btnGhost} onClick={() => ans({ take: false })}>不發動</button></div></Modal>);
+        case 'extremeDiscard':
+            return (<Modal title={`【${pr.sourceName}】：選一張棄掉`}><div className={UI.CH.m04}>你面前有多張同值的{pr.mode === 'max' ? '最大' : '最小'}牌，選一張棄掉。</div>
+                <div className={UI.CH.m05}>{pr.options.map(i => <Chip key={i} c={me.front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
+        case 'compareTarget':
+            return (<Modal title={pr.cardId === 'TROLL' ? '巨魔：比大' : '木乃伊：比小'}><div className={UI.CH.m04}>選一位玩家與你比手牌，{pr.cardId === 'TROLL' ? '小者輸' : '大者輸'}（輸家把手牌放到贏家面前並補抽 1 張）。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'zombieTarget':
+            return (<Modal title="喪屍的啃咬"><div className={UI.CH.m04}>選一位玩家（可選自己），棄掉他面前的一張牌；選自己時不能棄剛打出的牌。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'zombieCard':
+            return (<Modal title="喪屍：選要棄的牌"><div className={UI.CH.sectionTitle}>{g.players[pr.targetId].name} 面前</div>
+                <div className={UI.CH.m05}>{pr.options.map(i => <Chip key={i} c={g.players[pr.targetId].front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
+        case 'sandwormPick':
+            return (<Modal title="沙蟲的掠奪"><div className={UI.CH.m04}>選一張其他玩家面前的牌，奪到自己面前。</div>
+                <FrontPicker g={g} entries={pr.targets.flatMap(pid => g.players[pid].front.map((_, index) => ({ playerId: pid, index })))} onPick={(pid, index) => ans({ targetId: pid, index })} /></Modal>);
+        case 'stolenMinotaur':
+            return (<Modal title="沙蟲取得牛頭人"><div className={UI.CH.m04}>要立即棄掉剛奪得的【牛頭人】，以獲得額外回合嗎？</div>
+                <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={() => ans({ discard: true })}>棄掉，額外回合</button><button className={UI.CH.btnGhost} onClick={() => ans({ discard: false })}>保留牛頭人</button></div></Modal>);
+        case 'necroPick':
+            return (<Modal title="死靈法師的召喚"><div className={UI.CH.m04}>選一張棄牌堆的牌，放到自己面前。</div>
+                <div className={UI.CH.m05}>{g.discard.map((c, i) => <Chip key={i} c={c} onClick={() => ans({ index: i })} />)}</div></Modal>);
+        case 'skeletonGuess': return <SkeletonDialog g={g} pr={pr} ans={ans} />;
+        case 'hellLord': return <HellLordDialog g={g} pr={pr} ans={ans} />;
+        case 'seaMonster': {
+            const top = g.deck[g.deck.length - 1];
+            return (<Modal title="海怪查看牌堆頂"><div className={UI.CH.m04}>牌堆頂是：</div>
+                <div className={UI.CH.m05}>{top && <Chip c={top} />}</div>
+                <div className={UI.CH.m04}>要與一張手牌交換嗎？（你的手牌會放到牌堆頂）</div>
+                <div className={UI.CH.m05}>{me.hand.map((c, i) => <button key={i} className={UI.CH.btnTarget} onClick={() => ans({ handIndex: i })}>換掉 {sym(c)}{c.n}({c.v})</button>)}
+                    <button className={UI.CH.btnGhost} onClick={() => ans({ handIndex: -1 })}>不交換</button></div></Modal>);
+        }
+        case 'chimeraTarget':
+            return (<Modal title="奇美拉的凝視"><div className={UI.CH.m04}>選一位玩家（可選自己），他必須把手牌放到面前，並從牌庫重抽 1 張。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'succubusTarget':
+            return (<Modal title="魅魔的秘密選擇"><div className={UI.CH.m04}>選一位玩家；他獲勝時，你也一起獲勝（但你自己觸發勝利條件時無效）。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'minotaurTarget':
+            return (<Modal title="牛頭人的偷窺"><div className={UI.CH.m04}>選一位玩家查看手牌，之後可選擇是否與他交換，並獲得額外回合。</div>
+                <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
+        case 'minotaurSwap': {
+            const t = g.players[pr.targetId], mine = targetable(me)[0], theirs = targetable(t)[0];
+            return (<Modal title="是否交換？">
+                <div className={UI.CH.m05}>
+                    <div className="text-center"><div className={UI.CH.m04}>你的手牌</div>{mine ? <Chip c={mine} /> : <span className={UI.CH.oppEmpty}>只有小丑</span>}</div>
+                    <div className="text-center"><div className={UI.CH.m04}>{t.name}</div>{theirs ? <Chip c={theirs} /> : t.hand[0] ? <Chip c={t.hand[0]} /> : null}</div>
+                </div>
+                <div className={UI.CH.m05}>{!pr.canSwap && <div className={UI.CH.m04}>無法交換（任一方手牌是小丑）</div>}{pr.canSwap && <button className={UI.CH.btn} onClick={() => ans({ swap: true })}>交換</button>}
+                    <button className={UI.CH.btnGhost} onClick={() => ans({ swap: false })}>不交換</button></div></Modal>);
+        }
+        case 'jokerPick':
+            return (<Modal title="小丑的效果"><div className={UI.CH.m04}>選一張同色牌，發動它的效果（先列其他玩家）。</div>
+                <FrontPicker g={g} entries={[...pr.options].sort((a, b) => (a.playerId === HUMAN) - (b.playerId === HUMAN))} onPick={(pid, index) => ans({ targetId: pid, index })} /></Modal>);
+        case 'ghostMove':
+        case 'ghostSettle': {
+            const entries = g.players.flatMap(p => p.front.map((_, index) => ({ playerId: p.id, index })));
+            return (<Modal title="幽靈：移動一張牌"><div className={UI.CH.m04}>選任一玩家面前的一張牌，移到自己面前。</div>
+                <FrontPicker g={g} entries={entries} onPick={(pid, index) => ans({ targetId: pid, index })} />
+                {pr.type === 'ghostSettle' && <button className={UI.CH.btnGhost + ' w-full mt-2'} onClick={() => ans({ skip: true })}>放棄移動</button>}</Modal>);
+        }
+        default:
+            return <Modal title="等待回應"><div className={UI.CH.m04}>{pr.type}</div></Modal>;
     }
-    closeModal();
-    updateUI();
-    endTurn();
+}
+function CenterModal({ g, pick, onTake, onClose }) {
+    const me = g.players[HUMAN];
+    return (
+        <Modal title={pick ? '拿一張暗牌' : '暗牌與備用牌'} onClose={onClose}>
+            <div className={UI.CH.m04}>你只看得到自己放回去的牌（或夢魘看過且沒被換過的牌）。</div>
+            {pick && <div className={UI.CH.m04 + ' !text-amber-300'}>{
+                !g.discard.some(c => c.id === 'BLOOD') ? '⚠️ 棄牌堆尚未出現【鮮血】，無法召喚吸血鬼。'
+                : frontSum(me) > 0 ? '⚠️ 你的面前區點數總和不為 0，無法召喚吸血鬼。'
+                : '✅ 已滿足條件（面前區點數=0），若拿到【吸血鬼】即可直接勝利！'}</div>}
+            <div className={UI.CH.sectionTitle}>暗牌</div>
+            <div className={UI.CH.m05}>
+                {g.centerCards.map((c, i) => {
+                    const ids = g.centerTouched[i];
+                    const touchTxt = ids.length ? '動過：' + ids.map(id => g.players[id].name).join('、') : '沒人動過';
+                    const wrap = el => <div key={i} className="flex flex-col items-center gap-0.5 w-[96px] shrink-0">{el}<span className="text-[9px] leading-tight text-center text-slate-400 break-words w-full">{touchTxt}</span></div>;
+                    if (!c) return wrap(<span className="flex items-center justify-center text-[10px] text-slate-500 border border-dashed border-slate-600 rounded" style={{ width: 72, height: 96 }}>（空）</span>);
+                    const known = me.knownCenter[i] === c.uid;
+                    return wrap(pick
+                        ? (known ? <SmallCard c={c} onClick={() => onTake(i)} /> : <SmallCard back onClick={() => onTake(i)} />)
+                        : (known ? <SmallCard c={c} /> : <SmallCard back onClick={() => {}} />));
+                })}
+            </div>
+            <div className={UI.CH.sectionTitle}>備用牌</div>
+            <div className={UI.CH.m05}>
+                {g.reserves.map((c, i) => c && <div key={i} className="flex justify-center w-[96px] shrink-0">{me.knownReserves[i] === c.uid ? <SmallCard c={c} /> : <SmallCard back onClick={() => {}} />}</div>)}
+            </div>
+        </Modal>
+    );
+}
+function DeckModal({ g, onClose }) { // 牌庫剩餘：尚未出現的牌＋可達成的勝利條件
+    const list = E.unplayedCards(g, g.players[HUMAN]).slice().sort((a, b) => b.value - a.value);
+    const peek = useContext(PeekCtx);
+    return (
+        <Modal title={`牌庫剩餘 ${g.deck.length}｜尚未出現的牌`} onClose={onClose}>
+            <div className="flex gap-2 mb-1.5 border-b border-amber-500/50 pb-1 text-[10px] font-black text-sky-300"><div className="w-[84px] shrink-0">卡牌</div><div className="flex-1">剩餘的勝利條件</div></div>
+            {list.map(o => {
+                const gd = GUIDE_BY_NAME[o.name] || {};
+                return (
+                    <div key={o.name + o.value} className="flex gap-2 mb-1.5 border-b border-slate-700/60 pb-1">
+                        <div className="w-[84px] shrink-0 text-[11px] font-black text-amber-200 cursor-pointer underline decoration-dotted" onClick={() => peek && peek({ id: gd.id, n: o.name, v: o.value })}><span className="gothic-num text-amber-300">{o.value}</span> {o.name} <span className="text-slate-400">×{o.count}</span></div>
+                        <div className="flex-1 text-[10px] leading-snug text-slate-300">{gd.victory}</div>
+                    </div>
+                );
+            })}
+        </Modal>
+    );
+}
+function RulesModal({ onClose }) { // 牌表：依號碼由小到大，顯示數值與花式
+    const defs = {}; E.CARD_DEFS.forEach(d => { defs[d.id] = d; });
+    // 排序：號碼 0→13；同號碼依 ♠ → ♣ → ♥ → ♦；道具牌（無號碼）排最後
+    const suitRank = d => { const k = d && d.suit ? E.SUITS.indexOf(d.suit) : -1; return k < 0 ? 9 : k; };
+    const list = Object.values(E.CARD_GUIDE).map(gd => ({ gd, d: defs[gd.id], v: defs[gd.id] ? defs[gd.id].v : 0, item: !defs[gd.id] && !gd.id.endsWith('JOKER') }))
+        .sort((a, b) => (a.item - b.item) || (a.v - b.v) || (suitRank(a.d) - suitRank(b.d)));
+    const suits = (gd, d) => {
+        if (!d) return gd.id.endsWith('JOKER') ? <span className={suitCls({ id: gd.id })}>✦</span> : <span className="text-slate-500">道具</span>;
+        if (d.id === 'ZOMBIE' || d.id === 'SKELETON') return <><span className={UI.CH.blue}>♠♣</span><span className={UI.CH.red}>♥♦</span><span className="text-slate-400"> ×4</span></>;
+        return <span className={suitCls(d)}>{sym(d)}</span>;
+    };
+    return (
+        <Modal title="規則・牌表（號碼由小到大）" onClose={onClose}>
+            {list.map(({ gd, d, v, item }) => (
+                <div key={gd.id} className="mb-2 border-b border-slate-700/60 pb-1.5">
+                    <div className="text-[12px] font-black text-amber-200">{!item && <span className="gothic-num text-amber-300">{v}</span>} {suits(gd, d)} {gd.n}</div>
+                    {gd.victory && <div className="text-[10px] text-slate-300"><b className="text-amber-300">勝：</b>{gd.victory}</div>}
+                    {gd.effect && <div className="text-[10px] text-slate-300"><b className="text-fuchsia-300">效：</b>{gd.effect}</div>}
+                </div>
+            ))}
+        </Modal>
+    );
+}
+function LogModal({ g, onClose }) {
+    return (
+        <Modal title="紀錄" onClose={onClose}>
+            {g.log.slice(-120).reverse().map((l, i) => <div key={i} className={UI.CH.logLine({ type: l.type })}>{l.msg}</div>)}
+        </Modal>
+    );
+}
+function DiscardModal({ g, onClose }) {
+    return (
+        <Modal title={`棄牌堆（${g.discard.length}）`} onClose={onClose}>
+            <div className={UI.CH.m05}>{g.discard.length === 0 ? <span className={UI.CH.oppEmpty}>（空）</span> : g.discard.map((c, i) => <SmallCard key={i} c={c} />)}</div>
+        </Modal>
+    );
+}
+function MatchBar({ g }) {
+    return <>{g.players.map(p => `${p.name} ${g.match.wins[p.id] || 0}/${g.match.target}`).join('　')}</>;
+}
+function GameOverModal({ g, onNew, onNext, onClose }) {
+    const win = g.winners.map(i => g.players[i].name);
+    const m = g.match, champs = m.champions.map(i => g.players[i].name);
+    return (
+        <Modal title={m.finished ? `🏆 ${champs.join('、')} 贏得整場比賽！` : win.length ? `🏆 第 ${m.round} 局勝者：${win.join('、')}` : `🏆 第 ${m.round} 局：無人勝利`}>
+            <div className={UI.CH.m04}>{[...g.log].reverse().find(l => l.type === 'win' && !l.msg.startsWith('🏆 比賽結束'))?.msg}</div>
+            <div className={UI.CH.m04 + ' !text-sky-300 font-black'}><MatchBar g={g} />（先取得 {m.target} 勝者贏得比賽）</div>
+            {g.players.map(p => (
+                <div key={p.id} className="mb-1.5 border-b border-slate-700/60 pb-1">
+                    <div className="text-[11px] font-black text-sky-300">{p.name}{g.winners.includes(p.id) ? ' 🏆' : ''}　面前 {frontSum(p)} 點{p.bindTo != null && <span className="text-fuchsia-300">　💖 魅魔綁定：{g.players[p.bindTo].name}</span>}</div>
+                    <div className={UI.CH.m05 + ' !my-0.5 !justify-start'}>
+                        {p.front.map((c, i) => <Chip key={'f' + i} c={c} />)}
+                        {p.hand.length > 0 && <span className="text-[10px] text-slate-500 mx-1">手牌：</span>}
+                        {p.hand.map((c, i) => <Chip key={'h' + i} c={c} />)}
+                    </div>
+                </div>
+            ))}
+            <div className={UI.CH.m05}>
+                {!m.finished && <button className={UI.CH.btn} onClick={onNext}>開始第 {m.round + 1} 小局</button>}
+                <button className={m.finished ? UI.CH.btn : UI.CH.btnGhost} onClick={onNew}>{m.finished ? '開始新比賽' : '重新比賽'}</button>
+                <button className={UI.CH.btnGhost} onClick={onClose}>看牌桌</button>
+            </div>
+        </Modal>
+    );
 }
 
-function finishDeckEmptySettlement() {
-    state.pendingGhost = null;
-    
-    // 現版本：牌庫抽完後一律以總點數最高者獲勝（夢魘不再改寫結算）
-    let targetScore = -1; 
-    let winner = null;
-    let scoresText = [];
-    
-    state.players.forEach(p => {
-        const baseFrontScore = p.front.reduce((sum, c) => sum + (c.v || 0), 0);
-        const alienBonus = p.hand.some(c => c.id === 'ALIEN') ? p.front.length * 2 : 0;
-        const frontScore = baseFrontScore + alienBonus;
-        const handScore = p.hand.reduce((sum, c) => sum + (c.v || 0), 0);
-        const totalScore = frontScore + handScore;
-        
-        scoresText.push(`${p.name}：面前 ${baseFrontScore}${alienBonus ? ` + 外星人加成 ${alienBonus}` : ''} + 手牌 ${handScore} = ${totalScore} 點`);
-        
-        if (totalScore > targetScore) { targetScore = totalScore; winner = p; }
+function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, awaiting, onContinue, canUndo, onUndo }) {
+    const [ui, setUi] = useState({ modal: null, sel: null, showBroadcast: true, overDismissed: false, ...(initialUi || {}) });
+    const patch = o => setUi(u => ({ ...u, ...o }));
+    const me = g.players[HUMAN];
+    const noPrompt = !g.prompt && !g.gameOver;
+    const myTurn = g.currentTurn === HUMAN && noPrompt;
+    const hasPK = me.hand.some(c => c.id === 'PUMPKIN_KING');
+    const canDraw = myTurn && g.phase === 'DRAW' && me.hand.length < 2 && g.deck.length > 0;
+    const canTake = myTurn && g.phase === 'DRAW' && me.hand.length === 1 && !hasPK && g.centerCards.some(Boolean);
+    const canPlay = myTurn && (g.phase === 'PLAY' || (g.phase === 'DRAW' && me.hand.length >= 2));
+    const returning = myTurn && g.phase === 'RETURN';
+    const selCard = ui.sel !== null ? me.hand[ui.sel] : null;
+    const hints = E.handHints(g, me);
+    const myContrib = new Set(hints.contrib);
+    const showGuide = name => patch({ modal: { type: 'guide', name } });
+    const act = a => { patch({ sel: null }); return dispatch(a); };
+
+    const pkComps = hasPK ? me.hand.map((c, i) => ({ c, i })).filter(x => x.c.id === 'SKELETON' || x.c.id === 'HEADLESS') : [];
+    const pkIdx = me.hand.findIndex(c => c.id === 'PUMPKIN_KING');
+    const onPlay = () => { // 手上有南瓜王＋骷髏／無頭騎士：不必選兩張，直接按「出牌」就能選「同時打出」
+        if (pkComps.length && (!selCard || selCard.id === 'PUMPKIN_KING' || selCard.id === 'SKELETON' || selCard.id === 'HEADLESS')) {
+            patch({ modal: { type: 'pk', comps: pkComps, pkIdx, solo: ui.sel !== null ? ui.sel : pkIdx } }); return;
+        }
+        if (!selCard) return;
+        act({ type: 'play', handIndex: ui.sel });
+    };
+    const mainBtn = returning
+        ? { label: '放回暗牌', on: !!selCard && selCard.id !== 'PUMPKIN_KING', run: () => act({ type: 'return', handIndex: ui.sel }) }
+        : canPlay ? { label: pkComps.length ? '出牌/組合' : '出牌', on: !!selCard || pkComps.length > 0, run: onPlay }
+        : { label: '抽牌', on: canDraw, run: () => act({ type: 'draw' }) };
+
+    const hint = g.gameOver ? '遊戲結束'
+        : g.prompt ? (g.prompt.playerId === HUMAN ? '請在彈窗中做出選擇' : `等待 ${g.players[g.prompt.playerId].name} 回應…`)
+        : g.currentTurn !== HUMAN ? `${g.players[g.currentTurn].name} 思考中…`
+        : returning ? '選一張手牌，放回剛拿的暗牌位置'
+        : canPlay ? (pkComps.length ? '你有南瓜王＋' + pkComps[0].c.n + '：按「出牌」可同時打出' : hasPK ? '你有南瓜王：必須出南瓜王／骷髏／無頭騎士' : '選一張手牌打出')
+        : '抽一張牌，或拿一張暗牌換';
+
+    // ── 動畫：抽牌（牌背從牌庫飛向抽牌者／新手牌從牌庫飛入）與打出（新牌從出牌者飛到面前區）──
+    const seenRef = useRef(null);
+    useLayoutEffect(() => {
+        const stage = document.getElementById('chaos-stage');
+        if (!stage) return;
+        const sr = stage.getBoundingClientRect(), sc = (sr.width / STAGE_W) || 1;
+        const cur = { front: new Set(), hand: new Set(), deck: g.deck.length };
+        g.players.forEach(pl => { pl.front.forEach(c => cur.front.add(c.uid)); if (pl.id === HUMAN) pl.hand.forEach(c => cur.hand.add(c.uid)); });
+        const prev = seenRef.current; seenRef.current = cur;
+        if (!prev || g.gameOver) return;
+        const ctr = el => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+        const ease = 'cubic-bezier(.2,.8,.25,1)';
+        const flyIn = (el, from, d, s0) => { // 讓牌自己從 from 飛到原本的位置
+            const t = ctr(el); if (!t || !from) return;
+            el.animate([
+                { transform: `translate(${(from.x - t.x) / sc}px, ${(from.y - t.y) / sc}px) scale(${s0 || .5})`, opacity: 0.2, offset: 0 },
+                { opacity: 1, offset: .3 },
+                { transform: 'translate(0,0) scale(1)', opacity: 1 }], { duration: d || 520, easing: ease });
+        };
+        const q = sel => stage.querySelector(sel);
+        const deckC = ctr(document.getElementById('deck-el'));
+        // 打出／搶牌／復活：新出現在面前區的牌
+        g.players.forEach(pl => pl.front.forEach(c => {
+            if (prev.front.has(c.uid)) return;
+            const from = pl.id === HUMAN ? ctr(document.getElementById('hand-el')) : ctr(q(`[data-opp="${pl.id}"]`));
+            flyIn(q(`[data-uid="${c.uid}"]`), from, 560, .45);
+        }));
+        // 我抽到／拿到的新手牌：從牌庫飛入
+        g.players[HUMAN].hand.forEach(c => { if (!prev.hand.has(c.uid)) flyIn(q(`[data-uid="${c.uid}"]`), deckC, 520, .35); });
+        // 對手抽牌：牌背從牌庫飛向他的頭像
+        if (g.currentTurn !== HUMAN && prev.deck > cur.deck && deckC) {
+            const to = ctr(q(`[data-opp="${g.currentTurn}"]`));
+            if (to) for (let k = 0; k < Math.min(2, prev.deck - cur.deck); k++) {
+                const b = document.createElement('div');
+                b.className = 'card-back';
+                Object.assign(b.style, { position: 'absolute', left: ((deckC.x - sr.left) / sc - 18) + 'px', top: ((deckC.y - sr.top) / sc - 24) + 'px', width: '36px', height: '48px', borderRadius: '3px', zIndex: 200, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,.6)' });
+                stage.appendChild(b);
+                const a = b.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${(to.x - deckC.x) / sc}px, ${(to.y - deckC.y) / sc}px) scale(.7)`, opacity: .9 }], { duration: 520, delay: k * 140, easing: ease, fill: 'both' });
+                a.onfinish = () => b.remove();
+            }
+        }
     });
-    
-    log(`🏆 結算全場總點數 (面前+手牌)：`, 'win');
-    log(`📊 ${scoresText.join(' | ')}`, 'sys');
-    
-    if (winner) {
-        declareWinner(winner, `${winner.name} 總點數是 ${targetScore}，獲得勝利！`);
-    }
+    const last = g.log.filter(l => l.type !== 'discard');
+    const l1 = last[last.length - 1], l2 = last[last.length - 2];
+    const opponents = g.players.filter(p => p.id !== HUMAN);
+    const n = me.front.length, step = n <= 1 ? 0 : Math.min(54, Math.floor((STAGE_W - 24 - 72) / (n - 1)));
+    const m = ui.modal;
+
+    return (
+        <PeekCtx.Provider value={c => patch({ peek: c })}>
+            <header className={UI.A.a01}>
+                <div className={UI.A.a02}><span className={UI.A.a03}>{VERSION}</span></div>
+                <div className={UI.A.a04}>
+                    <button onClick={onNew} className={UI.A.a05}><i className={UI.A.a06}></i><span>新局</span></button>
+                    <button onClick={() => patch({ showBroadcast: !ui.showBroadcast })} className={UI.A.a07({ showBroadcast: ui.showBroadcast })}>動態</button>
+                    <button onClick={() => setSpeed(speed === 1 ? 2 : speed === 2 ? 0.5 : 1)} className={UI.A.a08({ speed, v: speed })}>{speed}x</button>
+                    <button onClick={() => patch({ modal: { type: 'rules' } })} className={UI.A.a09}><i className={UI.A.a10}></i><span className={UI.A.a11}>規則</span></button>
+                    <button onClick={() => patch({ modal: { type: 'log' } })} className={UI.A.a12}><i className={UI.A.a13}></i><span className={UI.A.a14}>紀錄</span></button>
+                </div>
+            </header>
+
+            {ui.showBroadcast && (
+                <div className={UI.B.b01}>
+                    <div className={UI.B.b02({ broadcastEvent: null })}>
+                        <div className={UI.B.b03}>
+                            <div className={UI.B.b04}><span className={UI.B.b05}></span><span className={UI.B.b06}>{l1 ? l1.msg : '遊戲開始'}</span></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className={UI.C.c01}>
+                <div className="relative">
+                    {(() => {
+                        const ITEMS = [['南瓜', 'PUMPKIN'], ['月亮', 'MOON'], ['鮮血', 'BLOOD']];
+                        const got = ITEMS.filter(([, id]) => g.discard.some(c => c.id === id)).length;
+                        return (<>
+                            <button className={UI.C.c20} onClick={() => patch({ itemOpen: !ui.itemOpen })}>
+                                <span className={got ? UI.C.c22 : UI.C.c21}>道具牌({got}/3)</span>
+                                <i className={'fa-solid text-slate-400 ' + (ui.itemOpen ? 'fa-chevron-up' : 'fa-chevron-down')}></i>
+                            </button>
+                            {ui.itemOpen && (
+                                <div className={UI.C.c24}>
+                                    {ITEMS.map(([nm, id]) => {
+                                        const on = g.discard.some(c => c.id === id);
+                                        return <div key={id} className="flex items-center justify-between gap-3"><span className={on ? UI.C.c22 : UI.C.c21}>{nm}</span><span className={on ? UI.C.c22 : UI.C.c21}>{on ? '已出現 1/1' : '未出現 0/1'}</span></div>;
+                                    })}
+                                </div>
+                            )}
+                        </>);
+                    })()}
+                </div>
+                <div className={UI.C.c06}>
+                    <button className={UI.C.c02} onClick={() => patch({ modal: { type: 'discard' } })}>
+                        <i className="fa-solid fa-trash-can text-amber-400"></i><span className={UI.C.c04}>棄牌</span><span className={UI.C.c05}>{g.discard.length}</span>
+                    </button>
+                    <button className={UI.C.c11} onClick={() => patch({ modal: { type: 'center', pick: false } })}>
+                        <i className={UI.C.c12}></i><span className={UI.C.c13}>暗牌 <span className={UI.C.c14}>{g.centerCards.filter(Boolean).length}</span></span>
+                        <span className="text-slate-500">/</span>
+                        <i className={UI.C.c08}></i><span className={UI.C.c09}>備用 <span className={UI.C.c10}>{g.reserves.filter(Boolean).length}</span></span>
+                    </button>
+                    <div id="deck-el" className={UI.C.c15 + (g.deck.length <= 5 && !g.gameOver ? ' ' + UI.C.c23 : '')} onClick={() => patch({ modal: { type: 'deck' } })}><i className={UI.C.c16}></i><span className={UI.C.c17}>牌庫 <span className={UI.C.c18}>{g.deck.length}</span></span></div>
+                </div>
+            </div>
+
+            <section className={UI.D.d01}>
+                {opponents.map(p => {
+                    const isTurn = g.currentTurn === p.id && !g.gameOver;
+                    return (
+                        <div key={p.id} data-opp={p.id} className={UI.D.d02({ isDead: false, isTurn })}>
+                            <div className={UI.D.d03}>
+                                {me.bindTo === p.id && <span className="text-fuchsia-300">💖</span>}
+                                {p.immune && <span className={UI.D.d08}><i className={UI.D.d09}></i>免疫</span>}
+                                <span className="text-amber-300">🏆{g.match.wins[p.id] || 0}</span>
+                            </div>
+                            <div className={UI.D.d14({ player: { gradient: GRADS[p.id % 6] } })}>
+                                <img src={window.AVATAR_URL(p.id)} className={UI.D.d15} alt="" onError={e => { e.target.style.visibility = 'hidden'; }} />
+                            </div>
+                            <span className={UI.D.d16({ isTurn })}>{p.name}</span>
+                            <span className="text-[9px] leading-none text-amber-200/90 font-bold">{frontSum(p)} 點</span>
+                        </div>
+                    );
+                })}
+            </section>
+
+            <main className={UI.E.e01}>
+                <div className={UI.E.e02}></div>
+                <div className={UI.E.e05}>
+                    {opponents.map(p => {
+                        const tv = E.tenpaiView(g, p), cs = new Set(tv.contrib);
+                        return (
+                        <div key={p.id} className={UI.E.e06}>
+                            <OppFront cards={p.front} cs={cs} />
+                            {!g.match.darkMode && p.hand.length > 0 && (
+                                <div className="flex flex-col items-center gap-[2px] mt-0.5 w-full">
+                                    <span className="text-[9px] text-sky-300">手牌（明牌）</span>
+                                    {p.hand.map((c, i) => <Chip key={'h' + (c.uid || i)} c={c} />)}
+                                </div>
+                            )}
+                            {tv.tenpai.length > 0 && (
+                                <div className="flex flex-col items-center mt-0.5 max-w-full">
+                                    <div className={UI.CH.tenpaiText}>等待：<TenpaiNames names={tv.tenpai} onPick={showGuide} /></div>
+                                </div>
+                            )}
+                        </div>
+                        );
+                    })}
+                </div>
+                <div className={UI.E.e15}>
+                    <div>
+                        {awaiting
+                            ? <div className="flex flex-col items-center">
+                                <button className={UI.CH.btn + ' !text-[14px] !px-5 !py-2'} onClick={onContinue}>▶ 輪到【{awaiting}】（點擊繼續）</button>
+                                <div className={UI.CH.hintSub}>先看看上一位的動作，準備好再點擊</div>
+                              </div>
+                            : <>
+                               <div className={UI.CH.hint}>{hint}</div>
+                               <div className={UI.CH.hintSub}>{myTurn && g.extraTurn ? '（額外回合）' : ''}</div></>}
+                        {toast && <div className={UI.CH.toast}>{toast}</div>}
+                    </div>
+                </div>
+                <div className={UI.E.e51}></div>
+                <div className={UI.E.e52}>
+                    <div className={UI.E.e53} style={{ width: 72 + (n > 0 ? (n - 1) * step : 0), height: n ? 96 : 0 }}>
+                        {me.front.map((c, i) => (
+                            <button key={c.uid || i} data-uid={c.uid} className={UI.E.e54({ active: myContrib.has(c.uid) })} style={{ left: i * step, width: 72, height: 96, zIndex: i }}
+                                onClick={() => patch({ modal: { type: 'card', c } })}>
+                                <span className={UI.E.e55}>{c.v}</span>
+                                <span className={'text-2xl ' + suitCls(c)}>{sym(c) || '✦'}</span>
+                                <span className={UI.E.e57}>{c.n}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </main>
+
+            <footer id="hand-el" className={UI.F.f01}>
+                {g.gameOver && ui.overDismissed && (
+                    <div className={UI.F.f02}><button onClick={g.match.finished ? onNew : onNext} className={UI.F.f03}><i className={UI.F.f04}></i><span>{g.match.finished ? '開始新比賽' : `開始第 ${g.match.round + 1} 小局`}</span></button></div>
+                )}
+                <div className="absolute left-1.5 top-1.5 z-20">
+                    <div className={UI.F.f05({ isDead: false, isTurn: g.currentTurn === HUMAN && !g.gameOver })}>
+                        <div className={UI.F.f06({ me: { gradient: GRADS[0] } })}>
+                            <img src={window.AVATAR_URL(0)} className={UI.F.f07} alt="" onError={e => { e.target.style.visibility = 'hidden'; }} />
+                        </div>
+                        <span className={UI.F.f09({ isTurn: g.currentTurn === HUMAN })}>{me.name}</span>
+                    </div>
+                    <div className="text-[9px] leading-none text-amber-200/90 font-bold text-center">{frontSum(me)} 點</div>
+                    {me.bindTo != null && <div className="text-[9px] text-fuchsia-300 text-center">💖 綁定 {g.players[me.bindTo].name}</div>}
+                    <div className="text-[9px] text-amber-300 text-center">🏆 {g.match.wins[HUMAN] || 0}/{g.match.target}</div>
+                    {me.immune && <div className="text-[9px] text-cyan-300 text-center"><i className="fa-solid fa-shield-halved"></i> 免疫</div>}
+                    {hints.tenpai.length > 0 && (
+                        <div className="mt-1 w-[78px] flex flex-col items-start">
+                            <div className={UI.CH.tenpaiText + ' w-full !text-left'}>等待：<TenpaiNames names={hints.tenpai} onPick={showGuide} /></div>
+                        </div>
+                    )}
+                </div>
+                <div className={UI.F.f37}>
+                    <div className={UI.F.f38}>
+                        {me.hand.length === 0 && <div className={UI.F.f47}>無手牌</div>}
+                        {me.hand.map((c, i) => {
+                            const isSelected = ui.sel === i;
+                            const hh = hints.cards[i] || {};
+                            const hintCls = hh.canWin ? ' hand-win' : hh.enables ? ' hand-tenpai' : '';
+                            return (
+                                <div key={c.uid} data-uid={c.uid} className={UI.F.f39({ card: c, dragGhost: null, drawAnim: null, isSelected }) + hintCls}
+                                    onClick={() => (canPlay || returning) && patch({ sel: isSelected ? null : i })}>
+                                    <button className={UI.CH.infoDot} onClick={e => { e.stopPropagation(); patch({ modal: { type: 'card', c, after: hh.after } }); }}>i</button>
+                                    {hh.canWin && <span className={UI.CH.tagWin}>可勝利</span>}
+                                    {!hh.canWin && hh.enables && <span className={UI.CH.tagTenpai}>打出叫糊</span>}
+                                    <div className={UI.F.f40}><SuitIcon c={c} className={'cd-s ' + suitCls(c) + (String(c.v).length > 1 ? ' two' : '')} /><span className={UI.F.f41({ isSelected }) + (String(c.v).length > 1 ? ' two' : '')}>{c.v}</span></div>
+                                    <div className={UI.F.f45}>{c.n}</div>
+                                    <div className={UI.F.f44}><div className={UI.F.f46}>{(GUIDE[c.id] || {}).effect || (GUIDE[c.id] || {}).victory || ''}</div></div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                <div className={UI.F.f62}>
+                    <button className={UI.CH.act({ enabled: mainBtn.on })} disabled={!mainBtn.on} onClick={mainBtn.run}>{mainBtn.label}</button>
+                    <button className={UI.CH.act({ enabled: canTake })} disabled={!canTake} onClick={() => patch({ modal: { type: 'center', pick: true } })}>拿暗牌</button>
+                </div>
+            </footer>
+
+            {m && m.type === 'rules' && <RulesModal onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'log' && <LogModal g={g} onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'deck' && <DeckModal g={g} onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'discard' && <DiscardModal g={g} onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'card' && <CardDetail c={m.c} after={m.after} onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'guide' && <GuideModal name={m.name} onClose={() => patch({ modal: null })} />}
+            {m && m.type === 'center' && <CenterModal g={g} pick={m.pick} onClose={() => patch({ modal: null })} onTake={i => { patch({ modal: null }); act({ type: 'take', slot: i }); }} />}
+            {m && m.type === 'pk' && (
+                <Modal title="南瓜王" onClose={() => patch({ modal: null })}>
+                    <div className={UI.CH.m04}>{g.discard.some(c => c.id === 'PUMPKIN') ? '✅ 南瓜已出現：同時打出南瓜王與骷髏／無頭騎士即可獲勝！' : '同時打出南瓜王與骷髏／無頭騎士（南瓜出現後同時打出即獲勝；目前尚未出現南瓜，不會獲勝）。'}</div>
+                    <div className={UI.CH.m05}>
+                        {m.comps.map(x => <button key={x.i} className={UI.CH.btn} onClick={() => { patch({ modal: null }); act({ type: 'play', handIndex: m.pkIdx, companionIndex: x.i }); }}>南瓜王＋{x.c.n}　同時打出</button>)}
+                        <button className={UI.CH.btnGhost} onClick={() => { patch({ modal: null }); act({ type: 'play', handIndex: m.solo }); }}>只打出【{(me.hand[m.solo] || {}).n}】</button>
+                    </div>
+                </Modal>
+            )}
+            {g.prompt && g.prompt.playerId === HUMAN && !g.gameOver && (
+                <BackCtx.Provider value={canUndo && !['minotaurSwap', 'seaMonster', 'ghostMove', 'ghostSettle', 'frankenstein'].includes(g.prompt.type) ? () => { patch({ sel: null, modal: null }); onUndo(); } : null}>
+                    <PromptDialog g={g} pr={g.prompt} dispatch={dispatch} />
+                </BackCtx.Provider>)}
+            {g.gameOver && !ui.overDismissed && <GameOverModal g={g} onNew={onNew} onNext={onNext} onClose={() => patch({ overDismissed: true })} />}
+            {ui.peek && <CardDetail c={ui.peek} onClose={() => patch({ peek: null })} />}
+        </PeekCtx.Provider>
+    );
 }
 
-// --- AI 邏輯 ---
-function aiTurn() {
-    if (state.gameOver) return;
-    const p = state.players[state.currentTurn];
-    
-    const availableCenterSlots = state.centerCards
-        .map((card, index) => card ? index : -1)
-        .filter(index => index !== -1);
-    if (p.hand.length === 1 && !p.hand.some(c => c.id === 'PUMPKIN_KING') &&
-        availableCenterSlots.length > 0 && Math.random() < 0.25) {
-        aiTakeCenter(p, availableCenterSlots);
-        return;
-    }
-
-    if (p.hand.length < 2 && state.deck.length > 0) {
-        const result = drawCardLogic(p, true);
-        if (!result) {
-            checkDeckEmpty();
-            return;
-        }
-        if (result.isItem) {
-            state.extraTurn = false;
-            updateUI();
-            if (state.deck.length === 0) {
-                checkDeckEmpty();
-            } else {
-                setTimeout(aiTurn, 600);
-            }
-            return;
-        }
-        if (result.card) {
-            p.hand.push(result.card);
-            log(`${p.name} 抽了一張牌。`, 'sys');
-            updateUI();
-        }
-    }
-    
-    setTimeout(() => {
-        if (state.gameOver) return;
-        if (p.hand.length > 0) {
-            const hasPumpkinKing = p.hand.some(c => c.id === 'PUMPKIN_KING');
-            const pkIndex = p.hand.findIndex(c => c.id === 'PUMPKIN_KING');
-            const skeletonIdx = p.hand.findIndex(c => c.id === 'SKELETON');
-            const headlessIdx = p.hand.findIndex(c => c.id === 'HEADLESS');
-            const hasCompanion = skeletonIdx >= 0 || headlessIdx >= 0;
-            const pumpkinAppeared = state.discard.some(c => c.id === 'PUMPKIN');
-
-            if (hasPumpkinKing) {
-                // 有同伴時優先一起打出（尤其已出現南瓜可獲勝，或隨機偏好一起）
-                if (hasCompanion && (pumpkinAppeared || Math.random() < 0.7)) {
-                    const compIdx = skeletonIdx >= 0 ? skeletonIdx : headlessIdx;
-                    playCard(pkIndex, true, compIdx);
-                } else {
-                    // 只打出南瓜王
-                    playCard(pkIndex, false);
-                }
-            } else {
-                const winIdx = p.hand.findIndex(c => checkVictoryCondition(p, c));
-                const attackIdx = getAIAttackCardIndex(p);
-                const idx = winIdx !== -1 ? winIdx :
-                    (attackIdx !== -1 ? attackIdx : Math.floor(Math.random() * p.hand.length));
-                playCard(idx);
-            }
-        } else {
-            endTurn();
-        }
-    }, 400);
-}
-
-function aiTakeCenter(p, availableSlots) {
-    const index = availableSlots[Math.floor(Math.random() * availableSlots.length)];
-    const taken = state.centerCards[index];
-    const canSummonVampire = state.discard.some(c => c.id === 'BLOOD') && p.front.reduce((s, c) => s + (c.v || 0), 0) === 0;
-
-    if (taken.id === 'VAMPIRE') {
-        if (canSummonVampire) {
-            state.centerCards[index] = null;
-            p.front.push(taken);
-            declareWinner(p, `${p.name} 在【鮮血】出現後，且面前無牌，成功從暗牌召喚出【吸血鬼】，獲得勝利！`);
-        } else {
-            log(`⚠️ ${p.name} 選擇了暗牌 ${index + 1}，但未達成召喚條件，暗牌放回原位。`, 'sys');
-            endTurn();
-        }
-        return;
-    }
-
-    state.centerCards[index] = null;
-    p.hand.push(taken);
-    const returnableIndices = p.hand
-        .map((card, cardIndex) => card.id === 'PUMPKIN_KING' ? -1 : cardIndex)
-        .filter(cardIndex => cardIndex !== -1);
-    const returnIndex = returnableIndices[Math.floor(Math.random() * returnableIndices.length)];
-    const returned = p.hand.splice(returnIndex, 1)[0];
-    state.centerCards[index] = returned;
-
-    logSys(`${p.name} 拿一還一，換了暗牌 ${index + 1}。`);
-    updateUI();
-    endTurn();
-}
-
-// --- UI 更新 ---
-function updateUI() {
-    const me = state.players[0];
-    const knownCenter = me ? me.knownCenter || [] : [];
-    const knownReserves = me ? me.knownReserves || [] : [];
-    document.getElementById('match-status').innerText =
-        `第 ${matchState.round} 小局｜${state.players.map(player =>
-            `${player.name} ${matchState.wins[player.id] || 0}/3 勝`).join('　')}`;
-
-    document.getElementById('reserve-count').innerText = `${state.reserves.length} 張`;
-    const reserveDiv = document.getElementById('reserve-cards');
-    if (reserveDiv) {
-        reserveDiv.innerHTML = state.reserves.map((c, i) => {
-            if (!c) return `<div class="card">空</div>`;
-            if (knownReserves[i] === c.uid) {
-                return renderCardFace(c);
-            }
-            return `<div class="card back">?</div>`;
-        }).join('');
-    }
-
-    document.getElementById('deck-count').innerText = `${state.deck.length} 張`;
-    const deckPercent = state.initialDeckSize > 0 ? (state.deck.length / state.initialDeckSize) * 100 : 0;
-    document.querySelector('#deck-bar > div').style.width = `${deckPercent}%`;
-
-    const centerDiv = document.getElementById('center-cards');
-    document.getElementById('center-count').innerText = `${state.centerCards.filter(Boolean).length}/3`;
-    
-    centerDiv.innerHTML = state.centerCards.map((c, i) => {
-        if (!c) return `<div class="card">空</div>`;
-        if (knownCenter[i] === c.uid) {
-            return renderCardFace(c);
-        }
-        return `<div class="card back">?</div>`;
-    }).join('');
-
-    document.getElementById('discard-count').innerText = `${state.discard.length} 張`;
-    const discardDiv = document.getElementById('discard-cards');
-    discardDiv.innerHTML = state.discard.map(c => `
-        <span class="mini-card ${c.id === 'BLOOD' ? 'blood' : ''} ${c.suit ? `suit-${c.suit}` : ''}" onclick="showCardInfo('${c.id}')" style="cursor:pointer;" title="點擊查看說明">${c.suit ? `<span class="suit-symbol">${SUIT_SYMBOLS[c.suit]}</span>` : ''}${c.v ?? ''} ${c.n}</span>
-    `).join('');
-
-    const board = document.getElementById('board');
-    board.innerHTML = state.players.map(p => {
-        const bindText = p.bindTo !== undefined ? `<div style="color:#d946ef; font-size:11px; margin-top:4px;">💖 魅魔綁定: ${state.players.find(x=>x.id===p.bindTo)?.name || '?'}</div>` : '';
-        const hasPumpkinKing = p.id === state.currentTurn && p.hand.some(c => c.id === 'PUMPKIN_KING');
-        
-        const totalScore = p.front.reduce((sum, c) => sum + (c.v || 0), 0);
-        
-        const tenpai = getTenpaiInfo(p);
-        // 暗牌模式也公開所有玩家的叫糊狀態；外星人判定已排除僅由美杜莎觸發的情況
-        const displayTenpai = tenpai;
-        const tenpaiHtml = displayTenpai.length > 0 
-            ? `<div class="tenpai-badge">🔥 叫糊</div>
-               <div class="tenpai-text">等待：${displayTenpai.map(n => `<span onclick="showCardInfoByName('${n}')" style="cursor:pointer; text-decoration:underline; margin:0 2px;" title="點擊查看說明">${n}</span>`).join('、')}</div>` 
-            : '';
-        const tenpaiCards = new Set(displayTenpai);
-        const holdsPumpkinKing = p.hand.some(card => card.id === 'PUMPKIN_KING');
-        const hasPairCompanion = holdsPumpkinKing &&
-            p.hand.some(card => card.id === 'SKELETON' || card.id === 'HEADLESS');
-        const handHtml = isDarkMode() && p.id !== 0
-            ? p.hand.map(() => '<div class="card back">?</div>').join('')
-            : p.hand.map(card => {
-            const canPlayWithPumpkinKing = !holdsPumpkinKing ||
-                ['PUMPKIN_KING', 'SKELETON', 'HEADLESS'].includes(card.id);
-            const pairedWin = hasPairCompanion &&
-                (card.id === 'PUMPKIN_KING' || card.id === 'SKELETON' || card.id === 'HEADLESS') &&
-                state.discard.some(discarded => discarded.id === 'PUMPKIN');
-            const canWin = canPlayWithPumpkinKing && (checkVictoryCondition(p, card) || pairedWin);
-            
-            // 計算打出後會叫什麼糊（直接獲勝優先，不顯示綠色）
-            // 若已經有叫糊，只有出現「新的」叫糊組合才顯示綠色
-            let afterTenpai = [];
-            let enablesTenpai = false;
-            if (!canWin && canPlayWithPumpkinKing) {
-                afterTenpai = getTenpaiAfterPlaying(p, card);
-                const currentSet = new Set(displayTenpai);
-                const hasNewTenpai = afterTenpai.some(n => !currentSet.has(n));
-                enablesTenpai = afterTenpai.length > 0 && (displayTenpai.length === 0 || hasNewTenpai);
-            }
-            
-            const cardClass = canWin ? 'hand-win' : enablesTenpai ? 'hand-tenpai' : '';
-            const afterListStr = enablesTenpai ? afterTenpai.join('、') : '';
-            
-            // 自訂點擊：有會叫糊時同時顯示叫糊資訊 + 原本說明
-            const suit = card.suit || '';
-            const symbol = SUIT_SYMBOLS[suit] || '';
-            const jokerClass = card.id === 'RED_JOKER' ? 'red-joker' : card.id === 'BLUE_JOKER' ? 'blue-joker' : '';
-            const forcedClass = hasPumpkinKing && card.id === 'PUMPKIN_KING' ? 'forced' : '';
-            const clickHandler = enablesTenpai
-                ? `showCardInfoWithTenpai('${card.id}', '${afterListStr}')`
-                : `showCardInfo('${card.id}')`;
-            
-            return `<div class="card ${suit ? `suit-${suit}` : ''} ${jokerClass} ${cardClass} ${forcedClass}" onclick="${clickHandler}" style="cursor:pointer;" title="${enablesTenpai ? '打出後會叫糊：' + afterListStr : '點擊查看說明'}">
-                <div class="num">${card.v ?? ''}</div>
-                <div class="name">${symbol ? `<span class="suit-symbol">${symbol}</span>` : ''}${card.n}</div>
-            </div>`;
-        }).join('');
-
-        return `
-        <div class="player-box ${p.name === '你' ? 'me' : ''}">
-            ${tenpaiHtml}
-            <h3>${p.name} ${p.immune ? '🛡️免疫' : ''} <span>小局勝場 ${matchState.wins[p.id] || 0}/3｜總點數: ${totalScore}</span></h3>
-            ${bindText}
-            <div class="area-title">手牌 (${p.hand.length})</div>
-            <div class="cards-container">${handHtml}</div>
-            <div class="area-title">面前區 (${p.front.length})</div>
-            <div class="cards-container">${(() => {
-                const contrib = getContributingFrontUids(p.front, displayTenpai);
-                return p.front.map(c => renderCardFace(c, [
-                    p.immune ? 'immune-card' : '',
-                    contrib.has(c.uid) ? 'front-tenpai' : ''
-                ].filter(Boolean).join(' '))).join('');
-            })()}</div>
+// AI 回合開始時必須先被玩家點擊放行（以 turnNo 記錄）；AI 回合中途的抽牌／出牌／彈窗不再需要點擊
+const needsAck = (s, ack) => !s.gameOver && !s.prompt && s.players[s.currentTurn].isAI && ack !== s.turnNo;
+function StartScreen({ onStart }) {
+    const [dark, setDark] = useState(true);
+    return (
+        <div className="absolute inset-0 z-[140] flex flex-col items-center justify-center bg-slate-950/85">
+            <div className={UI.CH.startTitle}>群魔</div>
+            <div className={UI.CH.startSub}>單機版：你 vs AI　先取得 3 小局勝利者贏得比賽</div>
+            <div className="flex gap-2 mt-5">
+                <button className={dark ? UI.CH.btn : UI.CH.btnGhost} onClick={() => setDark(true)}>暗牌模式</button>
+                <button className={!dark ? UI.CH.btn : UI.CH.btnGhost} onClick={() => setDark(false)}>全明牌模式</button>
+            </div>
+            <div className={UI.CH.startSub}>{dark ? '看不到對手手牌' : '對手手牌全部公開（測試用）'}；選擇人數開始</div>
+            <div className="flex gap-2 mt-4">
+                {[3, 4, 5, 6].map(n => <button key={n} className={UI.CH.btn} onClick={() => onStart(n, dark)}>{n} 人</button>)}
+            </div>
         </div>
-    `}).join('');
-    
-    if (!state.gameOver && !state.waitForPlayerAck && !state.pendingGhost) {
-        document.getElementById('turn-indicator').innerText = `牌庫剩餘: ${state.deck.length} | 棄牌堆: ${state.discard.length} | 暗牌剩餘: ${state.centerCards.filter(Boolean).length}`;
-    }
+    );
 }
 
-function showModal(title, content, options = {}) {
-    const container = document.getElementById('modal-container');
-    if (container.innerHTML) modalHistory.push(container.innerHTML);
-    const cancelText = options.cancelText !== undefined ? options.cancelText : '返回上一個選擇';
-    const onCancel = options.onCancel !== undefined
-        ? options.onCancel
-        : (modalHistory.length > 0 ? 'goBackModal()' : false);
-    const cancelBtn = onCancel === false ? '' :
-        `<button onclick="${onCancel}" style="width:100%; margin-top:12px; padding:10px; background:#475569; color:white; border:none; border-radius:4px; cursor:pointer;">${cancelText}</button>`;
-    container.innerHTML = `<div class="modal"><div class="modal-content"><h3 style="color:#f59e0b; margin-top:0;">${title}</h3>${content}${cancelBtn}</div></div>`;
-}
-function goBackModal() {
-    const previousModal = modalHistory.pop();
-    if (previousModal !== undefined) {
-        document.getElementById('modal-container').innerHTML = previousModal;
-    }
-}
-function goBackModalOrClose() {
-    if (modalHistory.length > 0) goBackModal();
-    else closeModal();
-}
-function showCardInfo(cardId) {
-    const guide = CARD_GUIDE.find(c => c.id === cardId);
-    if (!guide) {
-        showModal('卡牌說明', `<p>找不到此牌的詳細說明。</p><button onclick="goBackModalOrClose()" style="width:100%; margin-top:10px; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">關閉</button>`);
-        return;
-    }
-    showModal(guide.n, `
-        <p><strong>勝利條件：</strong>${guide.victory}</p>
-        <p><strong>打出效果：</strong>${guide.effect}</p>
-        <button onclick="goBackModalOrClose()" style="width:100%; margin-top:10px; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">關閉</button>
-    `);
-}
-function showCardInfoWithTenpai(cardId, afterTenpaiStr) {
-    const guide = CARD_GUIDE.find(c => c.id === cardId);
-    if (!guide) {
-        showModal('卡牌說明', `<p>找不到此牌的詳細說明。</p><button onclick="goBackModalOrClose()" style="width:100%; margin-top:10px; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">關閉</button>`);
-        return;
-    }
-    showModal(guide.n, `
-        <div style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; border-radius:6px; padding:10px; margin-bottom:12px;">
-            <p style="margin:0; color:#4ade80; font-weight:bold;">🟢 打出後會叫糊：</p>
-            <p style="margin:6px 0 0; color:#dcfce7; font-size:15px;">${afterTenpaiStr || '無'}</p>
+function App() {
+    const gameRef = useRef(null);
+    const ackRef = useRef(-1); // 已點擊放行的回合序號：AI 回合必須先被放行才會行動
+    const undoRef = useRef([]); // 真人行動前的狀態快照：選擇彈窗的「返回上一步」
+    const [tick, setTick] = useState(0);
+    const [speed, setSpeed] = useState(1);
+    const [toast, setToast] = useState('');
+    const [gid, setGid] = useState(0);
+    const [scale, setScale] = useState(1);
+    const bump = () => setTick(t => t + 1);
+    useEffect(() => {
+        const f = () => setScale(Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H));
+        f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
+    }, []);
+    const start = (n, dark) => {
+        setGid(x => x + 1);
+        ackRef.current = -1; undoRef.current = [];
+        gameRef.current = E.newGame(Array.from({ length: n }, (_, i) => ({ name: NAMES[i], isAI: i !== HUMAN })), { darkMode: dark });
+        setToast(''); bump();
+    };
+    const nextRound = () => { // 下一小局：沿用玩家、勝場與模式
+        const nx = E.nextRound(gameRef.current);
+        if (!nx) return;
+        setGid(x => x + 1);
+        ackRef.current = -1; undoRef.current = [];
+        gameRef.current = nx;
+        setToast(''); bump();
+    };
+    const dispatch = a => {
+        const snap = structuredClone(gameRef.current);
+        const r = E.act(gameRef.current, HUMAN, a);
+        if (!r.ok) { setToast(r.error); setTimeout(() => setToast(''), 2200); }
+        else {
+            setToast('');
+            const s2 = gameRef.current;
+            if (s2.prompt && s2.prompt.playerId === HUMAN && !s2.gameOver) undoRef.current.push(snap); else undoRef.current = [];
+        }
+        bump(); return r;
+    };
+    const undo = () => { const snap = undoRef.current.pop(); if (!snap) return; gameRef.current = snap; setToast(''); bump(); };
+    useEffect(() => { // AI 與電腦座位的自動行動
+        const s = gameRef.current;
+        if (!s || s.gameOver) return;
+        const owner = s.prompt ? s.players[s.prompt.playerId] : s.players[s.currentTurn];
+        if (!owner.isAI) return;
+        if (needsAck(s, ackRef.current)) return; // 等待玩家點擊「繼續」
+        const t = setTimeout(() => { const r = E.aiStep(s); if (!r.ok) { console.error('AI 錯誤：', r.error); return; } bump(); }, 750 / speed);
+        return () => clearTimeout(t);
+    }, [tick, speed]);
+    const g = gameRef.current;
+    const awaiting = g && needsAck(g, ackRef.current) ? g.players[g.currentTurn].name : null;
+    const onContinue = () => { ackRef.current = gameRef.current.turnNo; bump(); };
+    return (
+        <div className={UI.root.r01}>
+            <div id="chaos-stage" className={UI.root.r02} style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: 'center center' }}>
+                <video className="table-bg-video" src="video/bg.mp4" autoPlay loop muted playsInline preload="auto"></video>
+                {g ? <Table key={gid} g={g} dispatch={dispatch} onNew={() => { gameRef.current = null; bump(); }} onNext={nextRound} speed={speed} setSpeed={setSpeed} toast={toast} awaiting={awaiting} onContinue={onContinue} canUndo={undoRef.current.length > 0} onUndo={undo} />
+                    : <StartScreen onStart={start} />}
+            </div>
         </div>
-        <p><strong>勝利條件：</strong>${guide.victory}</p>
-        <p><strong>打出效果：</strong>${guide.effect}</p>
-        <button onclick="goBackModalOrClose()" style="width:100%; margin-top:10px; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">關閉</button>
-    `);
+    );
 }
-function showCardInfoByName(name) {
-    const guide = CARD_GUIDE.find(c => c.n === name);
-    if (guide) showCardInfo(guide.id);
-    else showModal('卡牌說明', `<p>找不到「${name}」的詳細說明。</p><button onclick="goBackModalOrClose()" style="width:100%; margin-top:10px; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">關閉</button>`);
+// ── 進場前預載：video/bg.mp4 與 photo/ 內所有圖片都載入完才進場 ──
+const PRELOAD_IMAGES = ['card', 'cardb', 'cards', '狼card', '吸card', '女card', '科card'].map(n => `photo/${n}.jpg`)
+    .concat([0, 1, 2, 3, 4, 5].map(i => window.AVATAR_URL(i)));
+const PRELOAD_VIDEO = 'video/bg.mp4';
+function Boot() {
+    const [done, setDone] = useState(0);
+    const [ready, setReady] = useState(false);
+    const total = PRELOAD_IMAGES.length + 1;
+    useEffect(() => {
+        let alive = true, count = 0;
+        const hit = () => { count++; if (alive) { setDone(count); if (count >= total) setReady(true); } };
+        PRELOAD_IMAGES.forEach(u => { const im = new Image(); im.onload = im.onerror = hit; im.src = u; });
+        const v = document.createElement('video');
+        let vd = false; const vhit = () => { if (!vd) { vd = true; hit(); } };
+        v.preload = 'auto'; v.muted = true;
+        v.addEventListener('canplaythrough', vhit); v.addEventListener('error', vhit);
+        v.src = PRELOAD_VIDEO; v.load();
+        const to = setTimeout(() => { if (alive) setReady(true); }, 30000); // 保險：最久等 30 秒
+        return () => { alive = false; clearTimeout(to); };
+    }, []);
+    if (!ready) return (
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-950 text-amber-300">
+            <div className={UI.CH.startTitle}>群魔</div>
+            <div className="mt-4 w-56 h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.round(done / total * 100)}%` }}></div></div>
+            <div className="mt-2 text-xs text-slate-400">載入中… {Math.round(done / total * 100)}%</div>
+        </div>
+    );
+    return <App />;
 }
-function showCardGuide() {
-    const entries = CARD_GUIDE.map(card => `
-        <section class="card-guide-entry">
-            <h4>${card.n}</h4>
-            <p><strong>勝利條件：</strong>${card.victory}</p>
-            <p><strong>打出效果：</strong>${card.effect}</p>
-        </section>
-    `).join('');
-    showModal('卡牌說明', `
-        <p>包含怪物牌、道具牌與小丑牌。</p>
-        ${entries}
-        <button onclick="goBackModalOrClose()" style="width:100%; margin-top:10px; padding:10px; background:#475569; color:white; border:none; border-radius:4px;">關閉</button>
-    `);
-}
-function closeModal() {
-    document.getElementById('modal-container').innerHTML = '';
-    modalHistory = [];
-}
+window.__Chaos = { App, Table, needsAck };
+if (document.getElementById('root')) ReactDOM.createRoot(document.getElementById('root')).render(<Boot />);
 
-// 啟動
-startNewMatch();
-</script>
+    </script>
 </body>
 </html>
