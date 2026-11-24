@@ -53,13 +53,44 @@ const SUIT_PATH = {
 function SuitIcon({ c, className }) {
     return <svg className={className} viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d={SUIT_PATH[c.suit] || SUIT_PATH.star} /></svg>;
 }
+// 依「花式 → 數值 → 牌名」顯示（叫糊列表、規則列用；無花式則略過）
+function cardLabelParts(nameOrCard) {
+    if (nameOrCard && typeof nameOrCard === 'object') {
+        const c = nameOrCard;
+        const suit = isJoker(c) ? <span className={suitCls(c)}>✦</span> : (sym(c) ? <span className={suitCls(c)}>{sym(c)}</span> : null);
+        return { suit, v: c.v, n: c.n };
+    }
+    const name = nameOrCard;
+    const gd = GUIDE_BY_NAME[name] || {};
+    const d = E.CARD_DEFS.find(x => x.n === name || x.id === gd.id);
+    if (!d) {
+        if (name === '紅小丑') return { suit: <span className={UI.CH.red}>✦</span>, v: 0, n: name };
+        if (name === '藍小丑') return { suit: <span className={UI.CH.blue}>✦</span>, v: 0, n: name };
+        if (['月亮', '南瓜', '鮮血'].includes(name)) return { suit: <span className="text-slate-500">道具</span>, v: null, n: name };
+        return { suit: null, v: null, n: name };
+    }
+    if (d.id === 'ZOMBIE' || d.id === 'SKELETON') {
+        return { suit: <><span className={UI.CH.blue}>♠♣</span><span className={UI.CH.red}>♥♦</span></>, v: d.v, n: name };
+    }
+    return { suit: <span className={suitCls(d)}>{sym(d)}</span>, v: d.v, n: name };
+}
+function CardLabel({ name, card, className }) {
+    const p = cardLabelParts(card || name);
+    return (
+        <span className={className || 'inline-flex items-center gap-0.5'}>
+            {p.suit && <span className="shrink-0">{p.suit}</span>}
+            {p.v != null && <span className="gothic-num shrink-0">{p.v}</span>}
+            <span className="min-w-0">{p.n}</span>
+        </span>
+    );
+}
 function Chip({ c, onClick, hl }) {
     const peek = useContext(PeekCtx);
     const cls = UI.CH.chip + (hl ? ' ' + UI.CH.chipHl : '');
-    const body = (
+    const body = ( // 花式 → 數值 → 牌名
         <>
+            <span className={suitCls(c)}>{sym(c) || (isJoker(c) ? '✦' : '')}</span>
             <span className={'gothic-num ' + UI.CH.chipNum}>{c.v}</span>
-            <span className={suitCls(c)}>{sym(c)}</span>
             <span className={UI.CH.chipName}>{c.n}</span>
         </>
     );
@@ -71,16 +102,18 @@ function Chip({ c, onClick, hl }) {
         </span>
     );
 }
-// 小牌（與面前區同款 cards.jpg 牌面；back = 牌背 cardb.jpg）：用於暗牌／備用牌／棄牌堆視窗
-function SmallCard({ c, back, onClick, label }) {
+// 小牌（與面前區同款 cards.jpg 牌面；back = 牌背 cardb.jpg）：用於暗牌／備用牌／棄牌堆／效果選牌
+function SmallCard({ c, back, onClick, label, hl, sub }) {
     const peek = useContext(PeekCtx);
     const sz = { width: 72, height: 96 };
     if (back) return <button style={sz} onClick={onClick} className="card-back shrink-0 flex items-center justify-center text-amber-200/90 text-lg font-black shadow active:scale-95">{label || ''}</button>;
     return (
-        <button style={sz} onClick={onClick || (() => peek && peek(c))} className="front-card-bg bg-slate-900 shrink-0 shadow flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 active:scale-95">
+        <button style={sz} onClick={onClick || (() => peek && peek(c))}
+            className={'front-card-bg bg-slate-900 shrink-0 shadow flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 active:scale-95 relative' + (hl ? ' front-card-active' : '')}>
             <span className={UI.E.e55}>{c.v}</span>
             <span className={'text-2xl ' + suitCls(c)}>{sym(c) || '✦'}</span>
             <span className={UI.E.e57}>{c.n}</span>
+            {sub && <span className="absolute bottom-0.5 left-0 right-0 text-center text-[8px] font-black text-emerald-300 leading-none px-0.5 truncate">{sub}</span>}
         </button>
     );
 }
@@ -127,27 +160,99 @@ function Modal({ title, onClose, children }) {
         </div>
     );
 }
-function CardDetail({ c, after, onClose }) {
-    const gd = GUIDE[c.id] || {};
+// 手牌同款底圖（card.jpg／特殊角色圖）；用於詳情放大檢視
+function cardSkinClass(c) {
+    if (!c) return '';
+    const id = c.id, n = c.n;
+    if (id === 'WEREWOLF' || n === '狼人') return 'card-bg-wolf';
+    if (id === 'VAMPIRE' || n === '吸血鬼') return 'card-bg-vamp';
+    if (id === 'WITCH' || n === '女巫') return 'card-bg-witch';
+    if (id === 'FRANKENSTEIN' || n === '科學怪人') return 'card-bg-frank';
+    return '';
+}
+function resolveCardForZoom(cOrName) {
+    if (cOrName && typeof cOrName === 'object' && (cOrName.id || cOrName.n)) {
+        const c = { ...cOrName };
+        if (!c.id && c.n) c.id = (GUIDE_BY_NAME[c.n] || {}).id;
+        if (c.suit == null && c.id) {
+            const d = E.CARD_DEFS.find(x => x.id === c.id);
+            if (d && d.suit) c.suit = d.suit;
+        }
+        if (c.v == null && c.id) {
+            const d = E.CARD_DEFS.find(x => x.id === c.id);
+            if (d) c.v = d.v;
+            else if (E.SPECIALS && Object.values(E.SPECIALS).some(s => s.id === c.id)) c.v = 0;
+        }
+        return c;
+    }
+    const name = cOrName;
+    const gd = GUIDE_BY_NAME[name] || {};
+    const d = E.CARD_DEFS.find(x => x.n === name || x.id === gd.id);
+    if (d) return { ...d, n: d.n };
+    if (name === '紅小丑') return { id: 'RED_JOKER', n: '紅小丑', v: 0 };
+    if (name === '藍小丑') return { id: 'BLUE_JOKER', n: '藍小丑', v: 0 };
+    if (['月亮', '南瓜', '鮮血'].includes(name)) {
+        const id = name === '月亮' ? 'MOON' : name === '南瓜' ? 'PUMPKIN' : 'BLOOD';
+        return { id, n: name, v: 0 };
+    }
+    return { id: gd.id, n: name, v: 0 };
+}
+function ZoomCard({ c }) {
+    const card = resolveCardForZoom(c);
+    const gd = GUIDE[card.id] || GUIDE_BY_NAME[card.n] || {};
+    const vStr = String(card.v != null ? card.v : '');
+    const two = vStr.length > 1;
     return (
-        <Modal title={`${sym(c)} ${c.n}　點數 ${c.v}`} onClose={onClose}>
+        <div className={'hand-card card-bg ' + cardSkinClass(card) + ' relative w-[150px] h-[200px] bg-slate-900 p-2.5 flex flex-col justify-between shrink-0 mx-auto shadow-2xl pointer-events-none'}>
+            <div className={UI.F.f40}>
+                <SuitIcon c={card} className={'cd-s ' + suitCls(card) + (two ? ' two' : '')} />
+                <span className={UI.F.f41({ isSelected: false }) + (two ? ' two' : '')}>{card.v}</span>
+            </div>
+            <div className={UI.F.f45}>{card.n}</div>
+            <div className={UI.F.f44}><div className={UI.F.f46}>{gd.effect || gd.victory || ''}</div></div>
+        </div>
+    );
+}
+function CardDetail({ c, after, onClose }) {
+    const card = resolveCardForZoom(c);
+    const gd = GUIDE[card.id] || GUIDE_BY_NAME[card.n] || {};
+    const title = `${sym(card) || (isJoker(card) ? '✦' : '')} ${card.v} ${card.n}`.replace(/^\s+/, '');
+    return (
+        <Modal title={title} onClose={onClose}>
+            <div className="flex justify-center my-2"><ZoomCard c={card} /></div>
             {gd.victory && <div className={UI.CH.m04}><b className="text-amber-300">勝利條件：</b>{gd.victory}</div>}
             {gd.effect && <div className={UI.CH.m04}><b className="text-fuchsia-300">效果：</b>{gd.effect}</div>}
-            {after && after.length > 0 && <div className={UI.CH.tenpaiText}>打出後會叫糊：{after.join('、')}</div>}
+            {after && after.length > 0 && (
+                <div className={UI.CH.tenpaiText}>
+                    打出後會額外叫糊：
+                    {after.map((n, i) => <span key={n}>{i > 0 && '、'}<span className={UI.CH.tenpaiName}><CardLabel name={n} /></span></span>)}
+                </div>
+            )}
         </Modal>
     );
 }
 function GuideModal({ name, onClose }) {
     const gd = GUIDE_BY_NAME[name] || {};
+    const card = resolveCardForZoom(name);
     return (
-        <Modal title={name} onClose={onClose}>
+        <Modal title={<CardLabel name={name} className="inline-flex items-center gap-1" />} onClose={onClose}>
+            <div className="flex justify-center my-2"><ZoomCard c={card} /></div>
             {gd.victory && <div className={UI.CH.m04}><b className="text-amber-300">勝利條件：</b>{gd.victory}</div>}
             {gd.effect && <div className={UI.CH.m04}><b className="text-fuchsia-300">效果：</b>{gd.effect}</div>}
         </Modal>
     );
 }
 function TenpaiNames({ names, onPick }) {
-    return <>{names.map((n, i) => <span key={n}>{i > 0 && '、'}<span className={UI.CH.tenpaiName} onClick={() => onPick(n)}>{n}</span></span>)}</>;
+    // 一行一張，不用頓號連接
+    return (
+        <span className="inline-flex flex-col items-start gap-0.5 align-top">
+            {names.map(n => (
+                <span key={n} className={UI.CH.tenpaiName + ' block'} onClick={() => onPick(n)}>
+                    <CardLabel name={n} />
+                </span>
+            ))}
+        </span>
+    );
 }
 function NumPad({ g, picks, onPick }) { // 1–13 只顯示一次；picks 為已選順序（第 1 個、第 2 個）；每格列出尚未出現的牌
     const left = E.unplayedCards(g, g.players[HUMAN]);
@@ -178,15 +283,27 @@ function PlayerBtns({ g, ids, onPick }) {
         </div>
     );
 }
-function FrontPicker({ g, entries, onPick }) { // entries: [{playerId, index}]
+function FrontPicker({ g, entries, onPick, previewAdd }) { // entries: [{playerId, index}]；previewAdd＝選中後會放到自己面前，可預覽叫糊綠框
+    const me = g.players[HUMAN];
     const ids = [...new Set(entries.map(e => e.playerId))];
     return (
         <div>
             {ids.map(pid => (
                 <div key={pid}>
                     <div className={UI.CH.sectionTitle}>{g.players[pid].name} 面前</div>
-                    <div className={UI.CH.m05}>
-                        {entries.filter(e => e.playerId === pid).map(e => <Chip key={e.index} c={g.players[pid].front[e.index]} onClick={() => onPick(pid, e.index)} />)}
+                    <div className={UI.CH.m05 + ' !flex-wrap'}>
+                        {entries.filter(e => e.playerId === pid).map(e => {
+                            const c = g.players[pid].front[e.index];
+                            const extra = previewAdd ? E.tenpaiIfAddFront(g, me, c) : [];
+                            const hl = extra.length > 0;
+                            return (
+                                <div key={e.index} className="flex flex-col items-center gap-0.5">
+                                    <SmallCard c={c} hl={hl} onClick={() => onPick(pid, e.index)}
+                                        sub={hl ? '叫糊+' + extra.length : null} />
+                                    {hl && <span className="text-[8px] text-emerald-300 max-w-[72px] text-center leading-tight">{extra.map(n => cardLabelParts(n).n).join('、')}</span>}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             ))}
@@ -201,7 +318,15 @@ function UnplayedHint({ g }) { // 尚未公開的牌（扣除棄牌、所有面�
             <div className="text-[10px] font-black text-amber-300">尚未公開的牌（扣除棄牌、面前牌及你的手牌）</div>
             <div className="flex flex-wrap gap-[3px] mt-1">
                 {list.length === 0 ? <span className={UI.CH.oppEmpty}>沒有可列出的牌</span>
-                    : list.map(o => <button key={o.name + o.value} onClick={() => peek && peek({ id: (GUIDE_BY_NAME[o.name] || {}).id, n: o.name, v: o.value })} className="text-[9px] leading-none rounded border border-slate-600/70 bg-slate-900/85 px-1 py-[3px] text-amber-200 active:scale-95">{o.value} {o.name} ×{o.count}</button>)}
+                    : list.map(o => {
+                        const parts = cardLabelParts(o.name);
+                        return (
+                            <button key={o.name + o.value} onClick={() => peek && peek({ id: (GUIDE_BY_NAME[o.name] || {}).id, n: o.name, v: o.value })}
+                                className="text-[9px] leading-none rounded border border-slate-600/70 bg-slate-900/85 px-1 py-[3px] text-amber-200 active:scale-95 inline-flex items-center gap-0.5">
+                                {parts.suit}<span className="gothic-num">{parts.v}</span>{parts.n}<span className="text-slate-400">×{o.count}</span>
+                            </button>
+                        );
+                    })}
             </div>
         </div>
     );
@@ -253,7 +378,7 @@ function PromptDialog({ g, pr, dispatch }) {
                 <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={() => ans({ take: true })}>發動</button><button className={UI.CH.btnGhost} onClick={() => ans({ take: false })}>不發動</button></div></Modal>);
         case 'extremeDiscard':
             return (<Modal title={`【${pr.sourceName}】：選一張棄掉`}><div className={UI.CH.m04}>你面前有多張同值的{pr.mode === 'max' ? '最大' : '最小'}牌，選一張棄掉。</div>
-                <div className={UI.CH.m05}>{pr.options.map(i => <Chip key={i} c={me.front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
+                <div className={UI.CH.m05 + ' !flex-wrap'}>{pr.options.map(i => <SmallCard key={i} c={me.front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
         case 'compareTarget':
             return (<Modal title={pr.cardId === 'TROLL' ? '巨魔：比大' : '木乃伊：比小'}><div className={UI.CH.m04}>選一位玩家與你比手牌，{pr.cardId === 'TROLL' ? '小者輸' : '大者輸'}（輸家把手牌放到贏家面前並補抽 1 張）。</div>
                 <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
@@ -262,24 +387,34 @@ function PromptDialog({ g, pr, dispatch }) {
                 <PlayerBtns g={g} ids={pr.targets} onPick={id => ans({ targetId: id })} /></Modal>);
         case 'zombieCard':
             return (<Modal title="喪屍：選要棄的牌"><div className={UI.CH.sectionTitle}>{g.players[pr.targetId].name} 面前</div>
-                <div className={UI.CH.m05}>{pr.options.map(i => <Chip key={i} c={g.players[pr.targetId].front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
+                <div className={UI.CH.m05 + ' !flex-wrap'}>{pr.options.map(i => <SmallCard key={i} c={g.players[pr.targetId].front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
         case 'sandwormPick':
-            return (<Modal title="沙蟲的掠奪"><div className={UI.CH.m04}>選一張其他玩家面前的牌，奪到自己面前。</div>
-                <FrontPicker g={g} entries={pr.targets.flatMap(pid => g.players[pid].front.map((_, index) => ({ playerId: pid, index })))} onPick={(pid, index) => ans({ targetId: pid, index })} /></Modal>);
+            return (<Modal title="沙蟲的掠奪"><div className={UI.CH.m04}>選一張其他玩家面前的牌，奪到自己面前。<span className="text-emerald-300">綠框＝拿到後會額外叫糊</span></div>
+                <FrontPicker g={g} previewAdd entries={pr.targets.flatMap(pid => g.players[pid].front.map((_, index) => ({ playerId: pid, index })))} onPick={(pid, index) => ans({ targetId: pid, index })} /></Modal>);
         case 'stolenMinotaur':
             return (<Modal title="沙蟲取得牛頭人"><div className={UI.CH.m04}>要立即棄掉剛奪得的【牛頭人】，以獲得額外回合嗎？</div>
                 <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={() => ans({ discard: true })}>棄掉，額外回合</button><button className={UI.CH.btnGhost} onClick={() => ans({ discard: false })}>保留牛頭人</button></div></Modal>);
-        case 'necroPick':
-            return (<Modal title="死靈法師的召喚"><div className={UI.CH.m04}>選一張棄牌堆的牌，放到自己面前。</div>
-                <div className={UI.CH.m05}>{g.discard.map((c, i) => <Chip key={i} c={c} onClick={() => ans({ index: i })} />)}</div></Modal>);
+        case 'necroPick': {
+            return (<Modal title="死靈法師的召喚"><div className={UI.CH.m04}>選一張棄牌堆的牌，放到自己面前。<span className="text-emerald-300">綠框＝放到面前後會額外叫糊</span></div>
+                <div className={UI.CH.m05 + ' !flex-wrap'}>{g.discard.map((c, i) => {
+                    const extra = E.tenpaiIfAddFront(g, me, c);
+                    const hl = extra.length > 0;
+                    return (
+                        <div key={i} className="flex flex-col items-center gap-0.5">
+                            <SmallCard c={c} hl={hl} onClick={() => ans({ index: i })} sub={hl ? '叫糊+' + extra.length : null} />
+                            {hl && <span className="text-[8px] text-emerald-300 max-w-[72px] text-center leading-tight">{extra.map(n => cardLabelParts(n).n).join('、')}</span>}
+                        </div>
+                    );
+                })}</div></Modal>);
+        }
         case 'skeletonGuess': return <SkeletonDialog g={g} pr={pr} ans={ans} />;
         case 'hellLord': return <HellLordDialog g={g} pr={pr} ans={ans} />;
         case 'seaMonster': {
             const top = g.deck[g.deck.length - 1];
             return (<Modal title="海怪查看牌堆頂"><div className={UI.CH.m04}>牌堆頂是：</div>
-                <div className={UI.CH.m05}>{top && <Chip c={top} />}</div>
+                <div className={UI.CH.m05}>{top && <SmallCard c={top} />}</div>
                 <div className={UI.CH.m04}>要與一張手牌交換嗎？（你的手牌會放到牌堆頂）</div>
-                <div className={UI.CH.m05}>{me.hand.map((c, i) => <button key={i} className={UI.CH.btnTarget} onClick={() => ans({ handIndex: i })}>換掉 {sym(c)}{c.n}({c.v})</button>)}
+                <div className={UI.CH.m05 + ' !flex-wrap'}>{me.hand.map((c, i) => <SmallCard key={i} c={c} onClick={() => ans({ handIndex: i })} />)}
                     <button className={UI.CH.btnGhost} onClick={() => ans({ handIndex: -1 })}>不交換</button></div></Modal>);
         }
         case 'chimeraTarget':
@@ -295,8 +430,8 @@ function PromptDialog({ g, pr, dispatch }) {
             const t = g.players[pr.targetId], mine = targetable(me)[0], theirs = targetable(t)[0];
             return (<Modal title="是否交換？">
                 <div className={UI.CH.m05}>
-                    <div className="text-center"><div className={UI.CH.m04}>你的手牌</div>{mine ? <Chip c={mine} /> : <span className={UI.CH.oppEmpty}>只有小丑</span>}</div>
-                    <div className="text-center"><div className={UI.CH.m04}>{t.name}</div>{theirs ? <Chip c={theirs} /> : t.hand[0] ? <Chip c={t.hand[0]} /> : null}</div>
+                    <div className="text-center"><div className={UI.CH.m04}>你的手牌</div>{mine ? <SmallCard c={mine} /> : <span className={UI.CH.oppEmpty}>只有小丑</span>}</div>
+                    <div className="text-center"><div className={UI.CH.m04}>{t.name}</div>{theirs ? <SmallCard c={theirs} /> : t.hand[0] ? <SmallCard c={t.hand[0]} /> : null}</div>
                 </div>
                 <div className={UI.CH.m05}>{!pr.canSwap && <div className={UI.CH.m04}>無法交換（任一方手牌是小丑）</div>}{pr.canSwap && <button className={UI.CH.btn} onClick={() => ans({ swap: true })}>交換</button>}
                     <button className={UI.CH.btnGhost} onClick={() => ans({ swap: false })}>不交換</button></div></Modal>);
@@ -307,8 +442,8 @@ function PromptDialog({ g, pr, dispatch }) {
         case 'ghostMove':
         case 'ghostSettle': {
             const entries = g.players.flatMap(p => p.front.map((_, index) => ({ playerId: p.id, index })));
-            return (<Modal title="幽靈：移動一張牌"><div className={UI.CH.m04}>選任一玩家面前的一張牌，移到自己面前。</div>
-                <FrontPicker g={g} entries={entries} onPick={(pid, index) => ans({ targetId: pid, index })} />
+            return (<Modal title="幽靈：移動一張牌"><div className={UI.CH.m04}>選任一玩家面前的一張牌，移到自己面前。<span className="text-emerald-300">綠框＝移過來後會額外叫糊</span></div>
+                <FrontPicker g={g} previewAdd entries={entries} onPick={(pid, index) => ans({ targetId: pid, index })} />
                 {pr.type === 'ghostSettle' && <button className={UI.CH.btnGhost + ' w-full mt-2'} onClick={() => ans({ skip: true })}>放棄移動</button>}</Modal>);
         }
         default:
@@ -344,17 +479,34 @@ function CenterModal({ g, pick, onTake, onClose }) {
         </Modal>
     );
 }
-function DeckModal({ g, onClose }) { // 牌庫剩餘：尚未出現的牌＋可達成的勝利條件
+function DeckModal({ g, onClose }) { // 牌庫剩餘：尚未出現的牌＋可達成的勝利條件（花式・數值・牌名 由左至右）
+    const defsByName = {};
+    E.CARD_DEFS.forEach(d => { defsByName[d.n] = d; });
     const list = E.unplayedCards(g, g.players[HUMAN]).slice().sort((a, b) => b.value - a.value);
     const peek = useContext(PeekCtx);
+    const suitLabel = (o) => {
+        const d = defsByName[o.name];
+        if (!d) {
+            if (o.name === '紅小丑') return <span className={UI.CH.red}>✦</span>;
+            if (o.name === '藍小丑') return <span className={UI.CH.blue}>✦</span>;
+            return <span className="text-slate-500">—</span>;
+        }
+        if (d.id === 'ZOMBIE' || d.id === 'SKELETON') return <><span className={UI.CH.blue}>♠♣</span><span className={UI.CH.red}>♥♦</span></>;
+        return <span className={suitCls(d)}>{sym(d) || '✦'}</span>;
+    };
     return (
         <Modal title={`牌庫剩餘 ${g.deck.length}｜尚未出現的牌`} onClose={onClose}>
-            <div className="flex gap-2 mb-1.5 border-b border-amber-500/50 pb-1 text-[10px] font-black text-sky-300"><div className="w-[84px] shrink-0">卡牌</div><div className="flex-1">剩餘的勝利條件</div></div>
+            <div className="flex gap-2 mb-1.5 border-b border-amber-500/50 pb-1 text-[10px] font-black text-sky-300"><div className="w-[110px] shrink-0">卡牌</div><div className="flex-1">剩餘的勝利條件</div></div>
             {list.map(o => {
                 const gd = GUIDE_BY_NAME[o.name] || {};
                 return (
                     <div key={o.name + o.value} className="flex gap-2 mb-1.5 border-b border-slate-700/60 pb-1">
-                        <div className="w-[84px] shrink-0 text-[11px] font-black text-amber-200 cursor-pointer underline decoration-dotted" onClick={() => peek && peek({ id: gd.id, n: o.name, v: o.value })}><span className="gothic-num text-amber-300">{o.value}</span> {o.name} <span className="text-slate-400">×{o.count}</span></div>
+                        <div className="w-[110px] shrink-0 text-[11px] font-black text-amber-200 cursor-pointer underline decoration-dotted flex items-center gap-0.5 flex-wrap" onClick={() => peek && peek({ id: gd.id, n: o.name, v: o.value })}>
+                            <span className="shrink-0">{suitLabel(o)}</span>
+                            <span className="gothic-num text-amber-300 shrink-0">{o.value}</span>
+                            <span className="min-w-0">{o.name}</span>
+                            <span className="text-slate-400 shrink-0">×{o.count}</span>
+                        </div>
                         <div className="flex-1 text-[10px] leading-snug text-slate-300">{gd.victory}</div>
                     </div>
                 );
@@ -362,22 +514,26 @@ function DeckModal({ g, onClose }) { // 牌庫剩餘：尚未出現的牌＋可�
         </Modal>
     );
 }
-function RulesModal({ onClose }) { // 牌表：依號碼由小到大，顯示數值與花式
+function RulesModal({ onClose }) { // 牌表：依號碼由小到大；花式・數值・牌名 由左至右
     const defs = {}; E.CARD_DEFS.forEach(d => { defs[d.id] = d; });
     // 排序：號碼 0→13；同號碼依 ♠ → ♣ → ♥ → ♦；道具牌（無號碼）排最後
     const suitRank = d => { const k = d && d.suit ? E.SUITS.indexOf(d.suit) : -1; return k < 0 ? 9 : k; };
     const list = Object.values(E.CARD_GUIDE).map(gd => ({ gd, d: defs[gd.id], v: defs[gd.id] ? defs[gd.id].v : 0, item: !defs[gd.id] && !gd.id.endsWith('JOKER') }))
         .sort((a, b) => (a.item - b.item) || (a.v - b.v) || (suitRank(a.d) - suitRank(b.d)));
-    const suits = (gd, d) => {
+    const suitPart = (gd, d) => {
         if (!d) return gd.id.endsWith('JOKER') ? <span className={suitCls({ id: gd.id })}>✦</span> : <span className="text-slate-500">道具</span>;
-        if (d.id === 'ZOMBIE' || d.id === 'SKELETON') return <><span className={UI.CH.blue}>♠♣</span><span className={UI.CH.red}>♥♦</span><span className="text-slate-400"> ×4</span></>;
+        if (d.id === 'ZOMBIE' || d.id === 'SKELETON') return <><span className={UI.CH.blue}>♠♣</span><span className={UI.CH.red}>♥♦</span><span className="text-slate-400 text-[10px]"> ×4</span></>;
         return <span className={suitCls(d)}>{sym(d)}</span>;
     };
     return (
         <Modal title="規則・牌表（號碼由小到大）" onClose={onClose}>
             {list.map(({ gd, d, v, item }) => (
                 <div key={gd.id} className="mb-2 border-b border-slate-700/60 pb-1.5">
-                    <div className="text-[12px] font-black text-amber-200">{!item && <span className="gothic-num text-amber-300">{v}</span>} {suits(gd, d)} {gd.n}</div>
+                    <div className="text-[12px] font-black text-amber-200 flex items-center gap-1 flex-wrap">
+                        <span className="shrink-0">{suitPart(gd, d)}</span>
+                        {!item && <span className="gothic-num text-amber-300 shrink-0">{v}</span>}
+                        <span>{gd.n}</span>
+                    </div>
                     {gd.victory && <div className="text-[10px] text-slate-300"><b className="text-amber-300">勝：</b>{gd.victory}</div>}
                     {gd.effect && <div className="text-[10px] text-slate-300"><b className="text-fuchsia-300">效：</b>{gd.effect}</div>}
                 </div>
@@ -617,7 +773,13 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                                 <div className={UI.C.c24}>
                                     {ITEMS.map(([nm, id]) => {
                                         const on = g.discard.some(c => c.id === id);
-                                        return <div key={id} className="flex items-center justify-between gap-3"><span className={on ? UI.C.c22 : UI.C.c21}>{nm}</span><span className={on ? UI.C.c22 : UI.C.c21}>{on ? '已出現 1/1' : '未出現 0/1'}</span></div>;
+                                        return (
+                                            <button key={id} type="button" className="w-full flex items-center justify-between gap-3 text-left active:scale-[0.98]"
+                                                onClick={e => { e.stopPropagation(); patch({ modal: { type: 'guide', name: nm } }); }}>
+                                                <span className={(on ? UI.C.c22 : UI.C.c21) + ' underline decoration-dotted'}>{nm}</span>
+                                                <span className={on ? UI.C.c22 : UI.C.c21}>{on ? '已出現 1/1' : '未出現 0/1'}</span>
+                                            </button>
+                                        );
                                     })}
                                 </div>
                             )}
@@ -673,7 +835,10 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                             )}
                             {tv.tenpai.length > 0 && (
                                 <div className="flex flex-col items-center mt-0.5 max-w-full">
-                                    <div className={UI.CH.tenpaiText}>等待：<TenpaiNames names={tv.tenpai} onPick={showGuide} /></div>
+                                    <div className={UI.CH.tenpaiText + ' flex flex-col items-center'}>
+                                        <span>等待：</span>
+                                        <TenpaiNames names={tv.tenpai} onPick={showGuide} />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -695,6 +860,11 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                     </div>
                 </div>
                 <div className={UI.E.e51}></div>
+                {/* E 區左下：點數與獎杯，對齊頭像上方 */}
+                <div className="absolute left-1.5 bottom-1 z-20 flex flex-col items-start gap-0.5 pointer-events-none">
+                    <div className="text-[10px] leading-none text-amber-200 font-black tabular-nums">{frontSum(me)} 點</div>
+                    <div className="text-[10px] leading-none text-amber-300 font-black tabular-nums">🏆 {g.match.wins[HUMAN] || 0}/{g.match.target}</div>
+                </div>
                 <div className={UI.E.e52}>
                     <div className={UI.E.e53} style={{ width: 72 + (n > 0 ? (n - 1) * step : 0), height: n ? 96 : 0 }}>
                         {me.front.map((c, i) => (
@@ -720,13 +890,14 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                         </div>
                         <span className={UI.F.f09({ isTurn: g.currentTurn === HUMAN })}>{me.name}</span>
                     </div>
-                    <div className="text-[9px] leading-none text-amber-200/90 font-bold text-center">{frontSum(me)} 點</div>
                     {me.bindTo != null && <div className="text-[9px] text-fuchsia-300 text-center">💖 綁定 {g.players[me.bindTo].name}</div>}
-                    <div className="text-[9px] text-amber-300 text-center">🏆 {g.match.wins[HUMAN] || 0}/{g.match.target}</div>
                     {me.immune && <div className="text-[9px] text-cyan-300 text-center"><i className="fa-solid fa-shield-halved"></i> 免疫</div>}
                     {hints.tenpai.length > 0 && (
                         <div className="mt-1 w-[78px] flex flex-col items-start">
-                            <div className={UI.CH.tenpaiText + ' w-full !text-left'}>等待：<TenpaiNames names={hints.tenpai} onPick={showGuide} /></div>
+                            <div className={UI.CH.tenpaiText + ' w-full !text-left flex flex-col items-start'}>
+                                <span>等待：</span>
+                                <TenpaiNames names={hints.tenpai} onPick={showGuide} />
+                            </div>
                         </div>
                     )}
                 </div>
@@ -742,7 +913,7 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                                     onClick={() => (canPlay || returning) && patch({ sel: isSelected ? null : i })}>
                                     <button className={UI.CH.infoDot} onClick={e => { e.stopPropagation(); patch({ modal: { type: 'card', c, after: hh.after } }); }}>i</button>
                                     {hh.canWin && <span className={UI.CH.tagWin}>可勝利</span>}
-                                    {!hh.canWin && hh.enables && <span className={UI.CH.tagTenpai}>打出叫糊</span>}
+                                    {!hh.canWin && hh.enables && <span className={UI.CH.tagTenpai}>額外叫糊</span>}
                                     <div className={UI.F.f40}><SuitIcon c={c} className={'cd-s ' + suitCls(c) + (String(c.v).length > 1 ? ' two' : '')} /><span className={UI.F.f41({ isSelected }) + (String(c.v).length > 1 ? ' two' : '')}>{c.v}</span></div>
                                     <div className={UI.F.f45}>{c.n}</div>
                                     <div className={UI.F.f44}><div className={UI.F.f46}>{(GUIDE[c.id] || {}).effect || (GUIDE[c.id] || {}).victory || ''}</div></div>
@@ -791,7 +962,7 @@ function StartScreen({ onStart }) {
     return (
         <div className="absolute inset-0 z-[140] flex flex-col items-center justify-center bg-slate-950/85">
             <div className={UI.CH.startTitle}>群魔</div>
-            <div className={UI.CH.startSub}>單機版：你 vs AI　先取得 3 小局勝利者贏得比賽</div>
+            <div className={UI.CH.startSub}>單機版：你 vs AI　先取得 2 小局勝利者贏得比賽</div>
             <div className="flex gap-2 mt-5">
                 <button className={dark ? UI.CH.btn : UI.CH.btnGhost} onClick={() => setDark(true)}>暗牌模式</button>
                 <button className={!dark ? UI.CH.btn : UI.CH.btnGhost} onClick={() => setDark(false)}>全明牌模式</button>

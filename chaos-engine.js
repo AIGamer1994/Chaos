@@ -42,29 +42,29 @@ const CARD_GUIDE = [
     { id: 'RED_JOKER', n: '紅小丑', victory: '打出前，自己面前區有藍小丑。', effect: '選擇任何玩家面前區任意一張紅色牌，發動其效果。' },
     { id: 'BLUE_JOKER', n: '藍小丑', victory: '打出前，自己面前區有紅小丑。', effect: '選擇任何玩家面前區任意一張藍色牌，發動其效果。' },
     { id: 'CTHULHU', n: '克蘇魯', victory: '如果牌庫抽完且無人達成勝利條件，則持有克蘇魯的玩家獲勝。', effect: '所有玩家棄掉面前數值最大的一張牌（同數值只棄 1 張，可選擇哪一張）。' },
-    { id: 'HELL_LORD', n: '地獄領主', victory: '打出時，猜中兩位玩家手牌。', effect: '猜兩位玩家手牌，猜中玩家手牌後，可放置於自己面前。' },
-    { id: 'PUMPKIN_KING', n: '南瓜王', victory: '南瓜牌出現過後，同時打出骷髏／無頭騎士+南瓜王。', effect: '抽到必須打出，不能放入暗牌。可與骷髏／無頭騎士一起打出；一起打出時補抽 1 張牌。' },
+    { id: 'HELL_LORD', n: '地獄領主', victory: '打出時，猜中兩位玩家手牌。', effect: '猜兩位玩家手牌，猜中後放置於自己面前。' },
+    { id: 'PUMPKIN_KING', n: '南瓜王', victory: '南瓜牌出現過後，同時打出骷髏／無頭騎士+南瓜王。', effect: '抽到必須打出，不能放入暗牌。可與骷髏／無頭騎士一起打出。' },
     { id: 'ALIEN', n: '外星人', victory: '打出前，除你以外，其他玩家都在叫糊狀態。', effect: '最終結算時，手持此牌，面前區每張牌點數加２。' },
-    { id: 'DRAGON', n: '魔龍', victory: '打出前，自己面前區的牌點數總和大於或等於３０。', effect: '查看所有人手牌，然後重新派發。' },
-    { id: 'SEA_MONSTER', n: '海怪', victory: '打出前，自己面前區至少有１對數字相同的牌（１號２號不算）。', effect: '查看牌堆頂的1張牌再決定是否交換。' },
-    { id: 'VAMPIRE', n: '吸血鬼', victory: '達成條件成功從暗牌中召喚。', effect: '鮮血牌出現過後，且面前區點數總和為 0 時可從暗牌堆拿出。' },
-    { id: 'WEREWOLF', n: '狼人', victory: '月亮牌出現時手握此牌。', effect: '打出前要棄掉面前區的一張牌（包括狼人自己）。' },
-    { id: 'SANDWORM', n: '沙蟲', victory: '打出前，自己面前區至少有２張藍色牌，而且你是場上面前區最多藍色牌的玩家（平手不算）。', effect: '從別人面前區選一張放到自己面前區。' },
+    { id: 'DRAGON', n: '魔龍', victory: '打出前，自己面前區的牌點數總和大於或等於３０。', effect: '查看所有人手牌，並重新派發。' },
+    { id: 'SEA_MONSTER', n: '海怪', victory: '打出前，自己面前區至少有１對數字相同的牌（１號２號不算）。', effect: '查看牌堆頂的１張牌再決定是否交換。' },
+    { id: 'VAMPIRE', n: '吸血鬼', victory: '達成條件成功從暗牌中召喚。', effect: '鮮血牌出現後且面前區點數為 0 時可從暗牌堆拿出。' },
+    { id: 'WEREWOLF', n: '狼人', victory: '月亮牌出現時手握此牌。', effect: '棄掉面前區數值最大的牌，包括狼人自己。' },
+    { id: 'SANDWORM', n: '沙蟲', victory: '打出前，自己面前區至少有２張藍色牌，而且你是場上面前區最多藍色牌的玩家（平手不算）。', effect: '從別人面前選一張牌放到自己面前。' },
     { id: 'NIGHTMARE', n: '夢魘', victory: '打出前，自己面前區至少有２張紅色牌，而且你是場上面前區最多紅色牌的玩家（平手不算）。', effect: '查看暗牌及備用牌的卡。' },
-    { id: 'NECROMANCER', n: '死靈法師', victory: '打出前，自己面前區至少有３張數值２以下的牌。', effect: '從棄牌區選一張放到自己面前區。' },
+    { id: 'NECROMANCER', n: '死靈法師', victory: '打出前，自己面前區至少有３張數值２以下的牌。', effect: '從棄牌區選一張放到自己面前。' },
     { id: 'TROLL', n: '巨魔', victory: '打出前，自己面前區至少有２張１０或以上的牌。', effect: '比手牌大，手牌較小的放在面前較大者面前。' },
-    { id: 'HEADLESS', n: '無頭騎士', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '所有玩家棄掉面前區數值最小的一張牌（同數值只棄 1 張，可選擇哪一張）。' },
-    { id: 'CHIMERA', n: '奇美拉', victory: '打出前，自己面前區至少有５款不同妖怪。', effect: '令目標棄手牌於面前區並重抽。' },
+    { id: 'HEADLESS', n: '無頭騎士', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '所有玩家棄掉面前數值最小的一張牌。' },
+    { id: 'CHIMERA', n: '奇美拉', victory: '打出前，自己面前區至少有５款不同妖怪。', effect: '令目標棄掉手牌於目標自己面前。' },
     { id: 'SUCCUBUS', n: '魅魔', victory: '被選擇的玩家勝利才能勝利，自己無法勝利。', effect: '秘密選擇一位玩家，該玩家勝利才能勝利。' },
-    { id: 'MEDUSA', n: '美杜莎', victory: '打出前，所有玩家面前牌數目一樣，且每人至少１張。', effect: '所有玩家把６或以上的牌放於各自面前區。' },
-    { id: 'WITCH', n: '女巫', victory: '打出前，自己面前區至少有２張牌，而且你是場上面前區牌最少的玩家（平手不算）。', effect: '所有玩家把５或以下的牌放於各自面前區。' },
+    { id: 'MEDUSA', n: '美杜莎', victory: '打出前，所有玩家面前牌數目一樣，且每人至少１張。', effect: '所有玩家把６或以上的牌放於各自面前。' },
+    { id: 'WITCH', n: '女巫', victory: '打出前，自己面前區至少有２張牌，而且你是場上面前區牌最少的玩家（平手不算）。', effect: '所有玩家把５或以下的牌放於各自面前。' },
     { id: 'GARGOYLE', n: '石像鬼', victory: '打出前，自己面前區至少有３張牌，而且你是場上面前區牌最多的玩家（平手不算）。', effect: '此回合免疫效果。' },
-    { id: 'FRANKENSTEIN', n: '科學怪人', victory: '打出前，自己面前區至少有３張７-１０號的牌。', effect: '回合結束時可棄掉面前區的科學怪人，額外獲得一回合。' },
+    { id: 'FRANKENSTEIN', n: '科學怪人', victory: '打出前，自己面前區至少有３張７-１０號的牌。', effect: '回合結束時可棄掉面前的科學怪人，額外獲得一回合。' },
     { id: 'MINOTAUR', n: '牛頭人', victory: '打出前，自己面前區至少有３張３-６號的牌。', effect: '查看別人手牌並選擇是否交換，額外獲得一回合。' },
     { id: 'MUMMY', n: '木乃伊', victory: '打出前，自己面前區的牌至少有三張順序遞增的牌。', effect: '比手牌小，手牌較大的放在面前較小者面前。' },
     { id: 'GHOST', n: '幽靈', victory: '打出前，自己面前區的牌至少有三張順序遞減的牌。', effect: '最終結算比點前，手拿幽靈可以移動一位玩家面前的一張牌。' },
     { id: 'ZOMBIE', n: '喪屍', victory: '打出前，自己面前區至少有兩張數字２／兩張數字１的牌。', effect: '選擇一位玩家棄掉面前一張牌。' },
-    { id: 'SKELETON', n: '骷髏', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '選擇一位玩家，猜其手牌兩個數值；任一猜中即可將該牌放到自己面前。' },
+    { id: 'SKELETON', n: '骷髏', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '選擇一位玩家，猜其手牌兩個數值；猜中即可將該牌放到自己面前。' },
     { id: 'MOON', n: '月亮', victory: '無。', effect: '抽到時直接棄掉，抽牌補回。狼人的勝利條件之一。' },
     { id: 'PUMPKIN', n: '南瓜', victory: '無。', effect: '抽到時直接棄掉，抽牌補回。南瓜王的勝利條件之一。' },
     { id: 'BLOOD', n: '鮮血', victory: '無。', effect: '抽到時直接棄掉，抽牌補回。召喚吸血鬼的條件之一。' }
@@ -590,14 +590,14 @@ const ok = () => ({ ok: true });
 const err = (e) => ({ ok: false, error: e });
 
 // ---------- 開局 ----------
-// opts.darkMode：新比賽的模式（true＝暗牌，false＝全明牌）；opts.match：沿用上一局的比賽（勝場、局數、模式）；opts.target：幾勝制（預設 3）
+// opts.darkMode：新比賽的模式（true＝暗牌，false＝全明牌）；opts.match：沿用上一局的比賽（勝場、局數、模式）；opts.target：幾勝制（預設 2）
 function newGame(specs, opts) {
     opts = opts || {};
     uidSeq = 0;
     const prev = opts.match;
     const match = prev
         ? { wins: prev.wins.slice(), round: prev.round + 1, target: prev.target, darkMode: prev.darkMode, finished: false, champions: [] }
-        : { wins: specs.map(() => 0), round: 1, target: opts.target || 3, darkMode: opts.darkMode !== false, finished: false, champions: [] };
+        : { wins: specs.map(() => 0), round: 1, target: opts.target || 2, darkMode: opts.darkMode !== false, finished: false, champions: [] };
     state = {
         match,
         players: [], deck: [], discard: [], centerCards: [], centerTouched: [[], [], []], reserves: [],
@@ -1293,12 +1293,25 @@ function handHints(s, p) {
         const canWin = canPlayPK && (checkVictoryCondition(p, card) || pairedWin);
         let after = [], enables = false;
         if (!canWin && canPlayPK) {
-            after = getTenpaiAfterPlaying(p, card);
-            enables = after.length > 0 && (tenpai.length === 0 || after.some(n => !cur.has(n)));
+            const full = getTenpaiAfterPlaying(p, card);
+            // 只列「額外」叫糊：原本已在叫的牌不重複顯示（例：已叫喪屍 → 不列喪屍）
+            after = full.filter(n => !cur.has(n));
+            enables = after.length > 0;
         }
         return { uid: card.uid, canWin, enables, after: enables ? after : [] };
     });
     return view;
+}
+// 模擬把 card 放到玩家面前後，是否會出現「原本沒有的」叫糊（供效果選牌綠框）
+function tenpaiIfAddFront(s, p, card) {
+    state = s;
+    const before = new Set(getTenpaiInfo(p));
+    p.front.push(card);
+    try {
+        return getTenpaiInfo(p).filter(n => !before.has(n));
+    } finally {
+        p.front.pop();
+    }
 }
 
 // ---------- 簡易 AI（沿用原版 aiTurn 的決策骨架；進階策略待移植）----------
@@ -1487,7 +1500,8 @@ function nextRound(s) {
     return newGame(s.players.map(p => ({ name: p.name, isAI: p.isAI, uid: p.uid })), { match: s.match });
 }
 const api = { CARD_DEFS, CARD_GUIDE, SUITS, SUIT_SYMBOLS, SPECIALS, newGame, nextRound, act, aiStep, setSeed, tenpaiView, handHints,
-  unplayedCards, getGuessTargets: (s, p) => { state = s; return getGuessTargets(p); },
+  unplayedCards, tenpaiIfAddFront,
+  getGuessTargets: (s, p) => { state = s; return getGuessTargets(p); },
   getTenpaiInfo: (s, p) => { state = s; return getTenpaiInfo(p); },
   checkVictoryCondition: (s, p, c) => { state = s; return checkVictoryCondition(p, c); } };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.ChaosEngine = api;
