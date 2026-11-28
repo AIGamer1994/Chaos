@@ -479,7 +479,7 @@ function PromptDialog({ g, pr, dispatch }) {
             return (<Modal title="科學怪人（小丑複製）"><div className={UI.CH.m04}>是否發動科學怪人效果，獲得額外回合？</div>
                 <div className={UI.CH.m05}><button className={UI.CH.btn} onClick={() => ans({ take: true })}>發動</button><button className={UI.CH.btnGhost} onClick={() => ans({ take: false })}>不發動</button></div></Modal>);
         case 'extremeDiscard':
-            return (<Modal title={`【${pr.sourceName}】：選一張棄掉`}><div className={UI.CH.m04}>你面前有多張同值的{pr.mode === 'max' ? '最大' : '最小'}牌，選一張棄掉。</div>
+            return (<Modal title={`【${pr.sourceName}】：選一張棄掉`}><div className={UI.CH.m04}>{pr.mode === 'blue' ? '你面前有多張藍色牌' : pr.mode === 'red' ? '你面前有多張紅色牌' : '你面前有多張同值的' + (pr.mode === 'max' ? '最大' : '最小') + '牌'}，選一張棄掉。</div>
                 <div className={UI.CH.m05 + ' !flex-wrap'}>{pr.options.map(i => <SmallCard key={i} c={me.front[i]} onClick={() => ans({ index: i })} />)}</div></Modal>);
         case 'compareTarget':
             return (<Modal title={pr.cardId === 'TROLL' ? '巨魔：比大' : '木乃伊：比小'}><div className={UI.CH.m04}>選一位玩家與你比手牌，{pr.cardId === 'TROLL' ? '小者輸' : '大者輸'}（輸家把手牌放到贏家面前並補抽 1 張）。</div>
@@ -593,14 +593,31 @@ function CenterModal({ g, pick, onTake, onClose }) {
                     const wrap = el => <div key={i} className="flex flex-col items-center gap-0.5 w-[96px] shrink-0">{el}<span className="text-[9px] leading-tight text-center text-slate-400 break-words w-full">{touchTxt}</span></div>;
                     if (!c) return wrap(<span className="flex items-center justify-center text-[10px] text-slate-500 border border-dashed border-slate-600 rounded" style={{ width: 72, height: 96 }}>（空）</span>);
                     const known = me.knownCenter[i] === c.uid;
-                    return wrap(pick
-                        ? (known ? <SmallCard c={c} onClick={() => onTake(i)} /> : <SmallCard back onClick={() => onTake(i)} />)
-                        : (known ? <SmallCard c={c} /> : <SmallCard back onClick={() => {}} />));
+                    const snap = (me.knownCenterSnap || [])[i];
+                    const stale = !known && snap && snap.uid;
+                    const face = known ? c : (stale ? snap : null);
+                    const cardEl = face
+                        ? <div className={stale ? 'opacity-40 grayscale' : ''} title={stale ? '舊資訊（已被換走）' : ''}><SmallCard c={face} onClick={pick ? () => onTake(i) : undefined} /></div>
+                        : <SmallCard back onClick={pick ? () => onTake(i) : () => {}} />;
+                    return wrap(cardEl);
                 })}
             </div>
             <div className={UI.CH.sectionTitle}>備用牌</div>
             <div className={UI.CH.m05}>
-                {g.reserves.map((c, i) => c && <div key={i} className="flex justify-center w-[96px] shrink-0">{me.knownReserves[i] === c.uid ? <SmallCard c={c} /> : <SmallCard back onClick={() => {}} />}</div>)}
+                {g.reserves.map((c, i) => {
+                    if (!c) return null;
+                    const known = me.knownReserves[i] === c.uid;
+                    const snap = (me.knownReservesSnap || [])[i];
+                    const stale = !known && snap && snap.uid;
+                    const face = known ? c : (stale ? snap : null);
+                    return (
+                        <div key={i} className="flex justify-center w-[96px] shrink-0">
+                            {face
+                                ? <div className={stale ? 'opacity-40 grayscale' : ''} title={stale ? '舊資訊（已變動）' : ''}><SmallCard c={face} /></div>
+                                : <SmallCard back onClick={() => {}} />}
+                        </div>
+                    );
+                })}
             </div>
         </Modal>
     );
@@ -885,12 +902,63 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
         };
         const q = sel => stage.querySelector(sel);
         const deckC = ctr(document.getElementById('deck-el'));
-        // 打出／搶牌／復活：新出現在面前區的牌
+        // 面前區棄牌 → 飛向棄牌堆
+        const discC = ctr(document.getElementById('discard-el'));
+        if (prev.frontPos && discC) {
+            prev.front.forEach(uid => {
+                if (cur.front.has(uid)) return;
+                // 仍在某人手牌則不播棄牌動畫
+                if (g.players.some(pl => pl.hand.some(c => c.uid === uid))) return;
+                const from = prev.frontPos[uid];
+                if (!from) return;
+                const b = document.createElement('div');
+                b.className = 'card-back';
+                Object.assign(b.style, {
+                    position: 'absolute',
+                    left: ((from.x - sr.left) / sc - 18) + 'px',
+                    top: ((from.y - sr.top) / sc - 24) + 'px',
+                    width: '36px', height: '48px', borderRadius: '3px',
+                    zIndex: 210, pointerEvents: 'none',
+                    boxShadow: '0 2px 10px rgba(0,0,0,.65)',
+                });
+                stage.appendChild(b);
+                const a = b.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${(discC.x - from.x) / sc}px, ${(discC.y - from.y) / sc}px) scale(.55) rotate(-18deg)`, opacity: 0.15 }
+                ], { duration: 480, easing: ease, fill: 'forwards' });
+                a.onfinish = () => b.remove();
+                setTimeout(() => b.remove(), 600);
+            });
+        }
+        // 打出／搶牌／不死鳥重生：新出現在面前區的牌
         g.players.forEach(pl => pl.front.forEach(c => {
+            const el = q(`[data-uid="${c.uid}"]`);
+            // 不死鳥重生（可能從其他面前移過來，uid 原本就在 prev.front）
+            if (c.id === 'PHOENIX' && c._justReborn) {
+                const from = { x: sr.left + sr.width / 2, y: sr.top + sr.height * 0.42 };
+                flyIn(el, from, 680, .2);
+                if (el) {
+                    el.animate([
+                        { boxShadow: '0 0 0 0 rgba(251,146,60,0)' },
+                        { boxShadow: '0 0 22px 6px rgba(251,146,60,.95)' },
+                        { boxShadow: '0 0 0 0 rgba(251,146,60,0)' }
+                    ], { duration: 720, easing: ease });
+                }
+                c._justReborn = false;
+                return;
+            }
             if (prev.front.has(c.uid)) return;
             const from = pl.id === HUMAN ? ctr(document.getElementById('hand-el')) : ctr(q(`[data-opp="${pl.id}"]`));
-            flyIn(q(`[data-uid="${c.uid}"]`), from, 560, .45);
+            flyIn(el, from, 560, .45);
         }));
+        // 記錄面前牌座標，供下次棄牌動畫使用
+        const frontPos = {};
+        g.players.forEach(pl => pl.front.forEach(c => {
+            const el = q(`[data-uid="${c.uid}"]`);
+            const p = ctr(el);
+            if (p) frontPos[c.uid] = p;
+        }));
+        seenRef.current.frontPos = frontPos;
         // 我抽到／拿到的新手牌：從牌庫飛入
         g.players[HUMAN].hand.forEach(c => { if (!prev.hand.has(c.uid)) flyIn(q(`[data-uid="${c.uid}"]`), deckC, 520, .35); });
         // 對手抽牌：牌背從牌庫飛向他的頭像
@@ -985,7 +1053,7 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                     })()}
                 </div>
                 <div className={UI.C.c06}>
-                    <button className={UI.C.c02} onClick={() => patch({ modal: { type: 'discard' } })}>
+                    <button id="discard-el" className={UI.C.c02} onClick={() => patch({ modal: { type: 'discard' } })}>
                         <i className="fa-solid fa-trash-can text-amber-400"></i><span className={UI.C.c04}>棄牌</span><span className={UI.C.c05}>{g.discard.length}</span>
                     </button>
                     <button className={UI.C.c11} onClick={() => patch({ modal: { type: 'center', pick: false } })}>

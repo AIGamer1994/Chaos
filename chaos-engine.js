@@ -9,6 +9,7 @@ const CARD_DEFS = [
     { v: 12, n: '九尾狐', id: 'NINE_TAILS', suit: 'club' },
     { v: 10, n: '美猴王', id: 'MONKEY_KING', suit: 'club' },
     { v: 13, n: '死神', id: 'DEATH', suit: 'diamond' },
+    { v: 12, n: '不死鳥', id: 'PHOENIX', suit: 'heart' },
     { v: 12, n: '外星人', id: 'ALIEN', suit: 'spade' },
     { v: 12, n: '南瓜王', id: 'PUMPKIN_KING', suit: 'diamond' },
     { v: 11, n: '魔龍', id: 'DRAGON', suit: 'spade' },
@@ -21,6 +22,9 @@ const CARD_DEFS = [
     { v: 9, n: '沙蟲', id: 'SANDWORM', suit: 'spade' },
     { v: 10, n: '無頭騎士', id: 'HEADLESS', suit: 'diamond' },
     { v: 7, n: '奇美拉', id: 'CHIMERA', suit: 'spade' },
+    { v: 7, n: '地獄犬', id: 'HELLHOUND', suit: 'heart' },
+    { v: 7, n: '蜘蛛精', id: 'SPIDER', suit: 'club' },
+    { v: 7, n: '樹精', id: 'TREANT', suit: 'diamond' },
     { v: 6, n: '魅魔', id: 'SUCCUBUS', suit: 'heart' },
     { v: 6, n: '美杜莎', id: 'MEDUSA', suit: 'spade' },
     { v: 5, n: '女巫', id: 'WITCH', suit: 'heart' },
@@ -56,6 +60,7 @@ const CARD_GUIDE = [
     { id: 'CLOUD', n: '筋斗雲', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
     { id: 'NEEDLE', n: '定海神針', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
     { id: 'PUMPKIN_KING', n: '南瓜王', victory: '南瓜牌出現過後，同時打出骷髏／無頭騎士+南瓜王。', effect: '抽到必須打出，不能放入暗牌。可與骷髏／無頭騎士一起打出。' },
+    { id: 'PHOENIX', n: '不死鳥', victory: '重生三次後，擁有不死鳥的玩家直接勝利。', effect: '在面前被棄牌時，在總點數最少的玩家面前重生。' },
     { id: 'ALIEN', n: '外星人', victory: '打出前，除你以外，其他玩家都在叫糊狀態。', effect: '最終結算時，手持此牌，面前區每張牌點數加２。' },
     { id: 'DRAGON', n: '魔龍', victory: '打出前，自己面前區的牌點數總和大於或等於３０。', effect: '查看所有人手牌，並重新派發。' },
     { id: 'SEA_MONSTER', n: '海怪', victory: '打出前，自己面前區至少有１對數字相同的牌（１號２號不算）。', effect: '查看牌堆頂的１張牌再決定是否交換。' },
@@ -66,7 +71,10 @@ const CARD_GUIDE = [
     { id: 'NECROMANCER', n: '死靈法師', victory: '打出前，自己面前區至少有３張數值２以下的牌。', effect: '從棄牌區選一張放到自己面前。' },
     { id: 'TROLL', n: '巨魔', victory: '打出前，自己面前區至少有２張１０或以上的牌。', effect: '比手牌大，手牌較小的放在面前較大者面前。' },
     { id: 'HEADLESS', n: '無頭騎士', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '將棄牌區或他人面前的【南瓜王】放到自己面前。' },
-    { id: 'CHIMERA', n: '奇美拉', victory: '打出前，自己面前區至少有５款不同妖怪。', effect: '令目標棄掉手牌於目標自己面前。' },
+    { id: 'CHIMERA', n: '奇美拉', victory: '打出前，自己面前區至少有１張♠牌，而且你是場上面前區最少♠牌的玩家（平手也算）。', effect: '每位玩家棄掉一張藍色牌，有多張時玩家自己選棄哪張。' },
+    { id: 'HELLHOUND', n: '地獄犬', victory: '打出前，自己面前區至少有１張♥牌，而且你是場上面前區最少♥牌的玩家（平手也算）。', effect: '每位玩家棄掉一張紅色牌，有多張時玩家自己選棄哪張。' },
+    { id: 'SPIDER', n: '蜘蛛精', victory: '打出前，自己面前區至少有１張♣牌，而且你是場上面前區最少♣牌的玩家（平手也算）。', effect: '棄掉所有玩家面前區數值最大的卡（不包括蜘蛛精自己）。' },
+    { id: 'TREANT', n: '樹精', victory: '打出前，自己面前區至少有１張♦牌，而且你是場上面前區最少♦牌的玩家（平手也算）。', effect: '所有玩家棄掉面前區數值最小的卡（不包括樹精自己）。' },
     { id: 'SUCCUBUS', n: '魅魔', victory: '被選擇的玩家勝利才能勝利，自己無法勝利。', effect: '秘密選擇一位玩家，該玩家勝利才能勝利。' },
     { id: 'MEDUSA', n: '美杜莎', victory: '打出前，所有玩家面前牌數目一樣，且每人至少１張。', effect: '所有玩家把６或以上的牌放於各自面前。' },
     { id: 'WITCH', n: '女巫', victory: '打出前，自己面前區至少有２張牌，而且你是場上面前區牌最少的玩家（平手不算）。', effect: '所有玩家把５或以下的牌放於各自面前。' },
@@ -77,9 +85,9 @@ const CARD_GUIDE = [
     { id: 'GHOST', n: '幽靈', victory: '打出前，自己面前區的牌至少有三張順序遞減的牌。', effect: '最終結算比點前，手拿幽靈可以移動一位玩家面前的一張牌。' },
     { id: 'ZOMBIE', n: '喪屍', victory: '打出前，自己面前區至少有兩張數字２／兩張數字１的牌。', effect: '選擇一位玩家棄掉面前一張牌。' },
     { id: 'SKELETON', n: '骷髏', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '選擇一位玩家，猜其手牌兩個數值；猜中即可將該牌放到自己面前。' },
-    { id: 'MOON', n: '月亮', victory: '無。', effect: '抽到時直接棄掉，抽牌補回。狼人的勝利條件之一。' },
-    { id: 'PUMPKIN', n: '南瓜', victory: '無。', effect: '抽到時直接棄掉，抽牌補回。南瓜王的勝利條件之一。' },
-    { id: 'BLOOD', n: '鮮血', victory: '無。', effect: '抽到時直接棄掉，抽牌補回。召喚吸血鬼的條件之一。' }
+    { id: 'MOON', n: '月亮', victory: '無。', effect: '出現在牌庫最後 1/3。抽到時直接棄掉並補抽。狼人勝利條件之一。' },
+    { id: 'PUMPKIN', n: '南瓜', victory: '無。', effect: '出現在牌庫中間 1/3。抽到時直接棄掉並補抽。南瓜王勝利條件之一。' },
+    { id: 'BLOOD', n: '鮮血', victory: '無。', effect: '出現在牌庫最後 1/3。抽到時直接棄掉並補抽。召喚吸血鬼條件之一。' }
 ];
 
 
@@ -147,6 +155,15 @@ function canWinWithMostColorCards(p, front, colorCheck) {
     return colorCount >= 2 &&
         state.players.every(other => other.id === p.id ||
             colorCount > other.front.filter(colorCheck).length);
+}
+
+// 七號四獸：自己（打出前）面前至少 1 張該花色，且是場上該花色最少的玩家（平手也算）
+const SEVEN_SUIT = { CHIMERA: 'spade', HELLHOUND: 'heart', SPIDER: 'club', TREANT: 'diamond' };
+function canWinWithFewestSuitCards(p, front, suit) {
+    const mine = front.filter(c => c.suit === suit).length;
+    return mine >= 1 &&
+        state.players.every(other => other.id === p.id ||
+            other.front.filter(c => c.suit === suit).length >= mine);
 }
 
 function canWinWithEqualFrontCounts(p, frontCount) {
@@ -277,7 +294,10 @@ function getTenpaiInfo(p, includeAlien = true) {
             case '無頭騎士':
                 return state.discard.some(c => c.id === 'PUMPKIN') &&
                     p.hand.some(c => c.id === 'PUMPKIN_KING');
-            case '奇美拉': return new Set(front.map(c => c.n)).size >= 5;
+            case '奇美拉': return canWinWithFewestSuitCards(p, front, 'spade');
+            case '地獄犬': return canWinWithFewestSuitCards(p, front, 'heart');
+            case '蜘蛛精': return canWinWithFewestSuitCards(p, front, 'club');
+            case '樹精': return canWinWithFewestSuitCards(p, front, 'diamond');
             case '魅魔': return false;
             case '沙蟲': return canWinWithMostColorCards(p, front, isBlueCard);
             case '美杜莎': return canWinWithEqualFrontCounts(p, front.length);
@@ -412,10 +432,10 @@ function getContributingFrontUids(front, tenpaiNames) {
     if (has('喪屍')) {
         front.forEach(c => { if (c.v === 1 || c.v === 2) uids.add(c.uid); });
     }
-    // 奇美拉：所有不同名稱的牌都算貢獻
-    if (has('奇美拉')) {
-        front.forEach(c => uids.add(c.uid));
-    }
+    // 奇美拉／地獄犬／蜘蛛精／樹精：對應花色的牌算貢獻
+    [['奇美拉', 'spade'], ['地獄犬', 'heart'], ['蜘蛛精', 'club'], ['樹精', 'diamond']].forEach(([nm, su]) => {
+        if (has(nm)) front.forEach(c => { if (c.suit === su) uids.add(c.uid); });
+    });
     // 石像鬼 / 女巫 / 美杜莎：主要看「數量」，全部亮
     if (has('石像鬼') || has('女巫') || has('美杜莎')) {
         front.forEach(c => uids.add(c.uid));
@@ -586,10 +606,8 @@ function checkVictoryCondition(p, card) {
         case 'TROLL': return prevFront.filter(c => c.v >= 10).length >= 2;
         case 'NECROMANCER': return prevFront.filter(c => c.v <= 2).length >= 3;
         case 'HEADLESS': return false;
-        case 'CHIMERA': {
-            const uniqueNames = new Set(prevFront.map(c => c.n));
-            return uniqueNames.size >= 5;
-        }
+        case 'CHIMERA': case 'HELLHOUND': case 'SPIDER': case 'TREANT':
+            return canWinWithFewestSuitCards(p, prevFront, SEVEN_SUIT[card.id]);
         case 'SANDWORM': return canWinWithMostColorCards(p, prevFront, isBlueCard);
         case 'RED_JOKER': return prevFront.some(c => c.id === 'BLUE_JOKER');
         case 'BLUE_JOKER': return prevFront.some(c => c.id === 'RED_JOKER');
@@ -607,6 +625,7 @@ function checkVictoryCondition(p, card) {
         case 'GHOST': return hasDescendingTriple(prevFront);
         case 'SLIP': return false;
         case 'MONKEY_KING': return false;
+        case 'PHOENIX': return false;
         case 'DEATH': return false;
         case 'NINE_TAILS': {
             const ids = new Set(prevFront.filter(c => c && c.id && !['MOON','PUMPKIN','BLOOD','CLOUD','NEEDLE','RED_JOKER','BLUE_JOKER'].includes(c.id)).map(c => c.id));
@@ -694,7 +713,7 @@ function newGame(specs, opts) {
     state.initialDeckSize = state.deck.length;
     specs.forEach((sp, i) => {
         const p = { id: i, name: sp.name, isAI: !!sp.isAI, uid: sp.uid || null, hand: [], front: [], immune: false,
-                    knownCenter: [], knownReserves: [], bindTo: null, monkeyMark: false };
+                    knownCenter: [], knownReserves: [], knownCenterSnap: [], knownReservesSnap: [], bindTo: null, monkeyMark: false };
         const k = state.deck.findIndex(c => c.id !== 'PUMPKIN' && c.id !== 'MOON' && c.id !== 'BLOOD');
         if (k !== -1) p.hand.push(state.deck.splice(k, 1)[0]);
         state.players.push(p);
@@ -941,6 +960,8 @@ function doReturn(handIndex) {
     p.hand.splice(handIndex, 1);
     state.centerCards[state.pendingSlot] = card;
     p.knownCenter[state.pendingSlot] = card.uid;
+    if (!p.knownCenterSnap) p.knownCenterSnap = [];
+    p.knownCenterSnap[state.pendingSlot] = { id: card.id, n: card.n, v: card.v, suit: card.suit, uid: card.uid };
     logSys(`${p.name} 將一張牌放回暗牌區第 ${state.pendingSlot + 1} 張，回合結束。`);
     state.pendingSlot = null;
     endTurn(); return ok();
@@ -981,9 +1002,54 @@ function doPlay(index, companionIndex) {
 // 效果函式回傳 true = 已開啟 prompt（等待某位玩家回應），呼叫端不可自行 endTurn；
 // 玩家回應後由 PROMPTS 內對應的處理函式接手，完成才結束回合。
 // 非 AI 座位（真人）有選擇時開 prompt；AI 座位直接沿用原版的自動決策。
-const NO_EFFECT = ['PUMPKIN_KING', 'ALIEN', 'FRANKENSTEIN', 'GHOST', 'SLIP', 'NINE_TAILS'];
+const NO_EFFECT = ['PUMPKIN_KING', 'ALIEN', 'FRANKENSTEIN', 'GHOST', 'SLIP', 'NINE_TAILS', 'PHOENIX'];
 function openPrompt(pr) { state.prompt = pr; state.phase = 'PROMPT'; return true; }
+function playerTotalPoints(pl) {
+    const front = pl.front.reduce((a, c) => a + (c.v || 0), 0);
+    const hand = pl.hand.reduce((a, c) => a + (c.v || 0), 0);
+    const alien = pl.hand.some(c => c.id === 'ALIEN') ? pl.front.length * 2 : 0;
+    const death = pl.hand.some(c => c.id === 'DEATH') ? state.discard.length : 0;
+    return front + hand + alien + death;
+}
+// 不死鳥從面前被棄：重生到總點最低者面前；第 3 次重生後該玩家勝利
+function doRebirthPhoenix(phoenix) {
+    phoenix.rebirths = (phoenix.rebirths || 0) + 1;
+    let bestPts = Infinity;
+    state.players.forEach(pl => {
+        const pts = playerTotalPoints(pl);
+        if (pts < bestPts) bestPts = pts;
+    });
+    const cands = state.players.filter(pl => playerTotalPoints(pl) === bestPts);
+    const best = cands.length ? cands[Math.floor(rand() * cands.length)] : null;
+    if (!best) {
+        putToDiscard(phoenix, `【不死鳥】無處可重生`);
+        return;
+    }
+    phoenix._justReborn = true;
+    best.front.push(phoenix);
+    log(`🔥 【不死鳥】在【${best.name}】面前重生（第 ${phoenix.rebirths} 次，總點 ${bestPts} 最低${cands.length > 1 ? '・同分隨機' : ''}）。`, 'effect');
+    if (phoenix.rebirths >= 3) {
+        declareWinner(best, `${best.name} 的【不死鳥】已重生三次，獲得勝利！`);
+    }
+}
+function rebirthPhoenix(phoenix, fromPlayer) {
+    // 全員棄牌波次中：先暫存，等全員棄完再重生（同波不會再被棄）
+    if (state._phoenixWave) {
+        if (!state._pendingPhoenix) state._pendingPhoenix = phoenix;
+        else putToDiscard(phoenix, `多餘的【不死鳥】進入棄牌堆`);
+        log(`🔥 【不死鳥】等待全員棄牌結束後重生…`, 'sys');
+        return;
+    }
+    doRebirthPhoenix(phoenix);
+}
+function finishPhoenixWave() {
+    state._phoenixWave = false;
+    const ph = state._pendingPhoenix;
+    state._pendingPhoenix = null;
+    if (ph && !state.gameOver) doRebirthPhoenix(ph);
+}
 function applyNineTailsProtect(pl, victim) {
+
     const foxI = pl.front.findIndex(c => c.id === 'NINE_TAILS');
     if (foxI === -1) return false;
     const fox = pl.front.splice(foxI, 1)[0];
@@ -1018,20 +1084,32 @@ function discardFront(pl, idx, text, resume) {
         applyNineTailsProtect(pl, victim);
         return false;
     }
-    putToDiscard(pl.front.splice(idx, 1)[0], text);
+    const gone = pl.front.splice(idx, 1)[0];
+    if (gone && gone.id === 'PHOENIX') {
+        rebirthPhoenix(gone, pl);
+        return false;
+    }
+    putToDiscard(gone, text);
     return false;
 }
 
 // 克蘇魯／無頭騎士：每位玩家棄掉面前極端值的牌（同值只棄 1 張，真人可選）。從第 from 位玩家開始，遇到真人需選擇就暫停。
+const COLOR_MODES = { blue: isBlueCard, red: isRedCard };
 function extremeDiscard(src, mode, from) {
+    if (from === 0) { state._phoenixWave = true; state._phoenixRebornThisWave = false; }
     for (let i = from; i < state.players.length; i++) {
         const pl = state.players[i];
         if (pl.immune) { log(`　- ${pl.name} 獲得【石像鬼】免疫，不受影響。`, 'immune'); continue; }
-        const cands = pl.front.map((c, index) => ({ card: c, index })).filter(({ card }) => card.uid !== src.uid);
-        if (cands.length === 0) { log(`　- ${pl.name} 面前沒有可棄的牌。`, 'sys'); continue; }
-        const vals = cands.map(x => x.card.v || 0);
-        const ev = mode === 'max' ? Math.max(...vals) : Math.min(...vals);
-        const ext = cands.filter(x => (x.card.v || 0) === ev);
+        const colorFn = COLOR_MODES[mode]; // 'blue' / 'red'：棄一張該顏色的牌；'max' / 'min'：棄極端值
+        let cands = pl.front.map((c, index) => ({ card: c, index })).filter(({ card }) => card.uid !== src.uid);
+        if (colorFn) cands = cands.filter(({ card }) => colorFn(card));
+        if (cands.length === 0) { log(`　- ${pl.name} 面前沒有可棄的${colorFn ? (mode === 'blue' ? '藍色' : '紅色') : ''}牌。`, 'sys'); continue; }
+        let ext = cands;
+        if (!colorFn) {
+            const vals = cands.map(x => x.card.v || 0);
+            const ev = mode === 'max' ? Math.max(...vals) : Math.min(...vals);
+            ext = cands.filter(x => (x.card.v || 0) === ev);
+        }
         const resume = { kind: 'extreme', src: { uid: src.uid, n: src.n }, mode, from: i + 1 };
         if (ext.length === 1) {
             if (discardFront(pl, ext[0].index, `${pl.name} 因【${src.n}】效果棄掉`, resume)) return true;
@@ -1044,6 +1122,7 @@ function extremeDiscard(src, mode, from) {
         }
         return openPrompt({ type: 'extremeDiscard', playerId: pl.id, mode, sourceUid: src.uid, sourceName: src.n, nextIndex: i + 1, options: ext.map(x => x.index) });
     }
+    finishPhoenixWave();
     return false;
 }
 function handToFront(card) { // 美杜莎／女巫
@@ -1106,10 +1185,16 @@ const EFFECTS = {
     NIGHTMARE(p) {
         p.knownCenter = state.centerCards.map(c => c ? c.uid : null);
         p.knownReserves = state.reserves.map(c => c ? c.uid : null);
-        log(`🌑 ${p.name} 打出了【夢魘】，查看了當下的暗牌區與備用牌；之後暗牌若被換走，夢魘不會知道新牌。`, 'nightmare');
+        p.knownCenterSnap = state.centerCards.map(c => c ? { id: c.id, n: c.n, v: c.v, suit: c.suit, uid: c.uid } : null);
+        p.knownReservesSnap = state.reserves.map(c => c ? { id: c.id, n: c.n, v: c.v, suit: c.suit, uid: c.uid } : null);
+        log(`🌑 ${p.name} 打出了【夢魘】，查看了當下的暗牌區與備用牌；之後若被換走，舊資訊會變暗。`, 'nightmare');
         return false;
     },
     CTHULHU(p, card) { log('➔ 所有玩家必須棄掉面前數值最大的牌（同數值只棄 1 張，可選擇）：', 'target'); return extremeDiscard(card, 'max', 0); },
+    CHIMERA(p, card) { log('➔ 每位玩家必須棄掉面前一張藍色牌（有多張可自選）：', 'target'); return extremeDiscard(card, 'blue', 0); },
+    HELLHOUND(p, card) { log('➔ 每位玩家必須棄掉面前一張紅色牌（有多張可自選）：', 'target'); return extremeDiscard(card, 'red', 0); },
+    SPIDER(p, card) { log('➔ 所有玩家必須棄掉面前數值最大的牌（不含蜘蛛精自己；同值只棄 1 張，可選擇）：', 'target'); return extremeDiscard(card, 'max', 0); },
+    TREANT(p, card) { log('➔ 所有玩家必須棄掉面前數值最小的牌（不含樹精自己；同值只棄 1 張，可選擇）：', 'target'); return extremeDiscard(card, 'min', 0); },
     HEADLESS(p, card) {
         const options = [];
         state.discard.forEach((c, index) => {
@@ -1232,14 +1317,6 @@ const EFFECTS = {
         log(`🌊 ${p.name} 發動【海怪】效果，查看了牌堆頂。`, 'effect');
         return false;
     },
-    CHIMERA(p) {
-        const targets = state.players.filter(x => !x.immune);
-        if (targets.length === 0) { log(`🦁 ${p.name} 的【奇美拉】找不到目標（全員免疫）。`, 'sys'); return false; }
-        if (!p.isAI) return openPrompt({ type: 'chimeraTarget', playerId: p.id, targets: targets.map(t => t.id) });
-        const opps = targets.filter(t => t.id !== p.id);
-        const t = getAIStrategicTarget(p, opps.length > 0 ? opps : targets);
-        log(`🦁 ${p.name} 的【奇美拉】選擇了【${t.name}】。`, 'chimera'); executeChimeraEffect(t); return false;
-    },
     SUCCUBUS(p) {
         // 可選自己（＝不綁定，自己可正常獲勝）；其他人需未免疫
         const targets = state.players.filter(x => x.id === p.id || !x.immune);
@@ -1357,8 +1434,11 @@ const PROMPTS = {
             if (idx === -1) return { error: '目標牌已不在面前' };
             applyNineTailsProtect(p, p.front[idx]);
         } else {
-            if (idx !== -1) putToDiscard(p.front.splice(idx, 1)[0], pr.text);
-            else log(`🦊 ${p.name} 選擇不抵消，但目標牌已不在面前。`, 'sys');
+            if (idx !== -1) {
+                const gone = p.front.splice(idx, 1)[0];
+                if (gone.id === 'PHOENIX') rebirthPhoenix(gone, p);
+                else putToDiscard(gone, pr.text);
+            } else log(`🦊 ${p.name} 選擇不抵消，但目標牌已不在面前。`, 'sys');
         }
         if (pr.resume && pr.resume.kind === 'extreme') {
             return extremeDiscard(pr.resume.src, pr.resume.mode, pr.resume.from) ? { next: true } : {};
@@ -1614,8 +1694,8 @@ function aiOppBenefit(p, card) {
     const opps = state.players.filter(o => o.id !== p.id && !o.immune);
     const edge = (pl, mode) => { const vs = pl.front.map(c => c.v || 0); return vs.length ? (mode === 'max' ? Math.max(...vs) : Math.min(...vs)) : 0; };
     switch (card.id) {
-        case 'CTHULHU': {
-            const mode = 'max';
+        case 'CTHULHU': case 'SPIDER': case 'TREANT': {
+            const mode = card.id === 'TREANT' ? 'min' : 'max';
             return edge(p, mode) - opps.reduce((sum, o) => sum + edge(o, mode), 0); // 自己的損失＝對手的利益
         }
         case 'MEDUSA': case 'WITCH': // 全員補牌：已叫糊的對手可能更接近勝利
