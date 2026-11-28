@@ -432,6 +432,23 @@ function HellLordDialog({ g, pr, ans }) {
         </Modal>
     );
 }
+function DeathSwapDialog({ g, pr, ans }) {
+    const me = g.players[HUMAN];
+    const [di, setDi] = useState(0);
+    const [hi, setHi] = useState(0);
+    return (
+        <Modal title="死神：棄牌與手牌交換">
+            <div className={UI.CH.m04}>選棄牌堆一張與自己手牌一張交換。</div>
+            <div className={UI.CH.sectionTitle}>棄牌堆</div>
+            <div className={UI.CH.m05 + ' !flex-wrap'}>{g.discard.map((c, i) => <SmallCard key={i} c={c} hl={di === i} onClick={() => setDi(i)} />)}</div>
+            <div className={UI.CH.sectionTitle}>你的手牌</div>
+            <div className={UI.CH.m05 + ' !flex-wrap'}>{me.hand.map((c, i) => <SmallCard key={i} c={c} hl={hi === i} onClick={() => setHi(i)} />)}</div>
+            <div className={UI.CH.m05}>
+                <button className={UI.CH.btn} disabled={!g.discard[di] || !me.hand[hi]} onClick={() => ans({ discardIndex: di, handIndex: hi })}>交換</button>
+            </div>
+        </Modal>
+    );
+}
 function SlipSettleDialog({ g, pr, ans }) {
     const me = g.players[HUMAN];
     const others = g.players.filter(p => p.id !== HUMAN).map(p => p.id);
@@ -531,6 +548,7 @@ function PromptDialog({ g, pr, dispatch }) {
                 <FrontPicker g={g} previewAdd entries={entries} onPick={(pid, index) => ans({ targetId: pid, index })} />
                 {pr.type === 'ghostSettle' && <button className={UI.CH.btnGhost + ' w-full mt-2'} onClick={() => ans({ skip: true })}>放棄移動</button>}</Modal>);
         }
+        case 'deathSwap': return <DeathSwapDialog g={g} pr={pr} ans={ans} />;
         case 'slipSettle': return <SlipSettleDialog g={g} pr={pr} ans={ans} />;
         default:
             return <Modal title="等待回應"><div className={UI.CH.m04}>{pr.type}</div></Modal>;

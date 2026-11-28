@@ -6,7 +6,8 @@ const CARD_DEFS = [
     { v: 13, n: '地獄領主', id: 'HELL_LORD', suit: 'heart' },
     { v: 13, n: '克蘇魯', id: 'CTHULHU', suit: 'spade' },
     { v: 13, n: '滑飄', id: 'SLIP', suit: 'club' },
-    { v: 13, n: '美猴王', id: 'MONKEY_KING', suit: 'diamond' },
+    { v: 12, n: '美猴王', id: 'MONKEY_KING', suit: 'diamond' },
+    { v: 13, n: '死神', id: 'DEATH', suit: 'diamond' },
     { v: 12, n: '外星人', id: 'ALIEN', suit: 'heart' },
     { v: 12, n: '南瓜王', id: 'PUMPKIN_KING', suit: 'spade' },
     { v: 11, n: '魔龍', id: 'DRAGON', suit: 'spade' },
@@ -48,7 +49,8 @@ const CARD_GUIDE = [
     { id: 'CTHULHU', n: '克蘇魯', victory: '如果牌庫抽完且無人達成勝利條件，則持有克蘇魯的玩家獲勝。', effect: '所有玩家棄掉面前數值最大的一張牌（同數值只棄 1 張，可選擇哪一張）。' },
     { id: 'HELL_LORD', n: '地獄領主', victory: '打出時，猜中兩位玩家手牌。', effect: '猜兩位玩家手牌，猜中後放置於自己面前。' },
     { id: 'SLIP', n: '滑飄', victory: '手持此牌時，最終比點改為點數最低者獲勝。', effect: '最終結算比點前，可將自己面前區一張牌移到其他玩家面前。' },
-    { id: 'MONKEY_KING', n: '美猴王', victory: '打出後獲得猴子標記；自己面前集齊筋斗雲與定海神針即獲勝。', effect: '把筋斗雲與定海神針洗入牌堆。' },
+    { id: 'MONKEY_KING', n: '美猴王', victory: '打出後獲得猴子標記；面前集齊筋斗雲與定海神針即獲勝。', effect: '把筋斗雲與定海神針洗入牌堆。' },
+    { id: 'DEATH', n: '死神', victory: '手持此牌時，最終比點總分額外加上棄牌堆張數。', effect: '從棄牌堆選一張牌與自己手牌交換。' },
     { id: 'CLOUD', n: '筋斗雲', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
     { id: 'NEEDLE', n: '定海神針', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
     { id: 'PUMPKIN_KING', n: '南瓜王', victory: '南瓜牌出現過後，同時打出骷髏／無頭騎士+南瓜王。', effect: '抽到必須打出，不能放入暗牌。可與骷髏／無頭騎士一起打出。' },
@@ -99,6 +101,14 @@ function unplayedCards(s, player) {
         remaining.set(`${def.n}|${def.v}`, { name: def.n, value: def.v, count });
     });
     [SPECIALS.RED_JOKER, SPECIALS.BLUE_JOKER].forEach(c => remaining.set(`${c.n}|${c.v}`, { name: c.n, value: c.v, count: 1 }));
+    // 筋斗雲／定海神針：打出美猴王後才入局；仍在牌庫／他人手牌時顯示為剩餘
+    ['CLOUD', 'NEEDLE'].forEach(id => {
+        const def = SPECIALS[id];
+        if (!def) return;
+        const all = [...(s.deck || []), ...(s.reserves || []), ...(s.discard || []), ...s.players.flatMap(pl => [...pl.hand, ...pl.front])];
+        const total = all.filter(c => c.id === id).length;
+        if (total > 0) remaining.set(`${def.n}|${def.v}`, { name: def.n, value: def.v, count: total });
+    });
     [...s.discard, ...s.players.flatMap(o => o.front), ...player.hand].forEach(c => {
         const o = remaining.get(`${c.n}|${c.v}`);
         if (o) o.count--;
@@ -313,11 +323,11 @@ function getTenpaiInfo(p, includeAlien = true) {
         if (hasBlood && frontValue === 0) tenpaiList.push('吸血鬼');
     }
 
-    // 美猴王：有猴子標記且尚未集齊筋斗雲+定海神針
+    // 美猴王：有猴子標記，且面前已有筋斗雲／定海神針其中一張（等另一張）才叫糊
     if (p.monkeyMark) {
         const hasC = front.some(c => c.id === 'CLOUD');
         const hasN = front.some(c => c.id === 'NEEDLE');
-        if (!(hasC && hasN)) tenpaiList.push('美猴王');
+        if ((hasC && !hasN) || (!hasC && hasN)) tenpaiList.push('美猴王');
     }
 
     // 外星人叫糊：其他玩家都叫糊，而且自己沒有別的叫糊（只有「唯一沒叫糊」的那位玩家才會顯示叫外星人）
@@ -595,6 +605,7 @@ function checkVictoryCondition(p, card) {
         case 'GHOST': return hasDescendingTriple(prevFront);
         case 'SLIP': return false;
         case 'MONKEY_KING': return false;
+        case 'DEATH': return false;
         case 'ZOMBIE': {
             const count1 = prevFront.filter(c => c.v === 1).length;
             const count2 = prevFront.filter(c => c.v === 2).length;
@@ -786,8 +797,9 @@ function aiSettleTotals(viewer) {
         const front = pl.front.reduce((a, c) => a + (c.v || 0), 0);
         const known = pl.id === viewer.id || !isDark();
         const alien = known && pl.hand.some(c => c.id === 'ALIEN') ? pl.front.length * 2 : 0;
+        const death = known && pl.hand.some(c => c.id === 'DEATH') ? state.discard.length : 0;
         const hand = known ? pl.hand.reduce((a, c) => a + (c.v || 0), 0) : pl.hand.length * mean;
-        return front + alien + hand;
+        return front + alien + death + hand;
     });
 }
 function aiBestGhostMove(p) {
@@ -816,13 +828,15 @@ function finishSettlement() {
     let best = lowWins ? Infinity : -1, winner = null; const texts = [];
     const rows = []; // 給介面「最終比點動畫」用的結構化資料
     const slim = c => ({ id: c.id, n: c.n, v: c.v || 0, suit: c.suit, uid: c.uid });
+    const discN = state.discard.length;
     state.players.forEach(p => {
         const baseFront = p.front.reduce((s, c) => s + (c.v || 0), 0);
         const alien = p.hand.some(c => c.id === 'ALIEN') ? p.front.length * 2 : 0;
         const hand = p.hand.reduce((s, c) => s + (c.v || 0), 0);
-        const total = baseFront + alien + hand;
-        rows.push({ id: p.id, name: p.name, fronts: p.front.map(slim), alien, hand: p.hand.map(slim), total });
-        texts.push(`${p.name}：面前 ${baseFront}${alien ? ` + 外星人加成 ${alien}` : ''} + 手牌 ${hand} = ${total} 點`);
+        const death = p.hand.some(c => c.id === 'DEATH') ? discN : 0;
+        const total = baseFront + alien + hand + death;
+        rows.push({ id: p.id, name: p.name, fronts: p.front.map(slim), alien, death, hand: p.hand.map(slim), total });
+        texts.push(`${p.name}：面前 ${baseFront}${alien ? ` + 外星人加成 ${alien}` : ''}${death ? ` + 死神棄牌堆 ${death}` : ''} + 手牌 ${hand} = ${total} 點`);
         if (lowWins ? total < best : total > best) { best = total; winner = p; }
     });
     if (lowWins) log('💨 【滑飄】生效：最終比點改為點數最低者獲勝！', 'win');
@@ -1010,6 +1024,24 @@ function compareEffect(p, card) { // 巨魔／木乃伊
     return openPrompt({ type: 'compareTarget', playerId: p.id, cardId: card.id, targets: targets.map(t => t.id) });
 }
 const EFFECTS = {
+    DEATH(p) {
+        if (state.discard.length === 0 || p.hand.length === 0) {
+            log(`☠️ ${p.name} 的【死神】想交換，但棄牌堆或手牌為空。`, 'sys');
+            return false;
+        }
+        if (!p.isAI) return openPrompt({ type: 'deathSwap', playerId: p.id });
+        // AI：用棄牌堆最高點換手中最低點（非死神本身若可能）
+        let di = 0;
+        for (let i = 1; i < state.discard.length; i++) if ((state.discard[i].v || 0) > (state.discard[di].v || 0)) di = i;
+        let hi = 0;
+        for (let i = 1; i < p.hand.length; i++) if ((p.hand[i].v || 0) < (p.hand[hi].v || 0)) hi = i;
+        const fromD = state.discard.splice(di, 1)[0];
+        const fromH = p.hand.splice(hi, 1)[0];
+        p.hand.push(fromD);
+        state.discard.push(fromH);
+        log(`☠️ ${p.name} 的【死神】用棄牌【${fromD.n}】換走手牌【${fromH.n}】。`, 'effect');
+        return false;
+    },
     MONKEY_KING(p) {
         p.monkeyMark = true;
         const cloud = { ...SPECIALS.CLOUD, uid: 'cloud-' + (uidSeq++) };
@@ -1351,6 +1383,16 @@ const PROMPTS = {
             log(`👻 ${p.name} 的【幽靈】將【${t.name}】面前的【${moved.n} (${moved.v})】移動到了自己面前。`, 'sys');
         }
         runSlipThenSettle(); return {};
+    },
+    deathSwap(a, pr, p) {
+        if (!Number.isInteger(a.discardIndex) || !Number.isInteger(a.handIndex)) return { error: '請選擇棄牌與手牌' };
+        if (!state.discard[a.discardIndex] || !p.hand[a.handIndex]) return { error: '選擇無效' };
+        const fromD = state.discard.splice(a.discardIndex, 1)[0];
+        const fromH = p.hand.splice(a.handIndex, 1)[0];
+        p.hand.push(fromD);
+        state.discard.push(fromH);
+        log(`☠️ ${p.name} 的【死神】用棄牌【${fromD.n}】換走手牌【${fromH.n}】。`, 'effect');
+        return {};
     },
     slipSettle(a, pr, p) {
         if (a.skip === true) { log(`💨 ${p.name} 的【滑飄】放棄了移牌。`, 'sys'); runSlipThenSettle(); return {}; }
