@@ -548,6 +548,20 @@ function PromptDialog({ g, pr, dispatch }) {
                 <FrontPicker g={g} previewAdd entries={entries} onPick={(pid, index) => ans({ targetId: pid, index })} />
                 {pr.type === 'ghostSettle' && <button className={UI.CH.btnGhost + ' w-full mt-2'} onClick={() => ans({ skip: true })}>放棄移動</button>}</Modal>);
         }
+        case 'headlessSteal': {
+            const opts = pr.options || [];
+            return (<Modal title="無頭騎士：取回南瓜王">
+                <div className={UI.CH.m04}>選擇一張【南瓜王】放到自己面前。</div>
+                <div className={UI.CH.m05 + ' !flex-col !items-stretch gap-2'}>
+                    {opts.map((o, i) => {
+                        const label = o.where === 'discard'
+                            ? '棄牌區的南瓜王'
+                            : `${(g.players[o.playerId] || {}).name || '玩家'} 面前的南瓜王`;
+                        return <button key={i} className={UI.CH.btn + ' w-full'} onClick={() => ans({ optionIndex: i })}>{label}</button>;
+                    })}
+                </div>
+            </Modal>);
+        }
         case 'nineTailsProtect':
             return (<Modal title="九尾狐：是否抵消棄牌">
                 <div className={UI.CH.m04}>你的面前【{pr.cardName}】將被棄掉。是否棄掉【九尾狐】抵消？抵消後該牌留在面前，並再抽 1 張手牌。</div>
