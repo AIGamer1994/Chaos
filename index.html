@@ -15,6 +15,36 @@
         .scrollbar-none::-webkit-scrollbar { display: none; }
         .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
         html, body, #root { height: 100%; margin: 0; background: #020617; }
+        /* 開局洗牌：牌背上下錯動 */
+        @keyframes chaos-shuffle {
+            0%, 100% { transform: translate(0,0) rotate(0deg); }
+            25% { transform: translate(4px,-6px) rotate(4deg); }
+            50% { transform: translate(-5px,3px) rotate(-5deg); }
+            75% { transform: translate(3px,5px) rotate(3deg); }
+        }
+        .chaos-shuffle-card {
+            position: absolute;
+            width: 52px; height: 70px;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.55);
+            animation: chaos-shuffle 0.28s ease-in-out infinite;
+        }
+        @keyframes chaos-deal-fly {
+            0% { opacity: 1; transform: translate(0,0) scale(1) rotate(0deg); }
+            100% { opacity: 0.15; transform: translate(var(--dx), var(--dy)) scale(0.55) rotate(var(--rot)); }
+        }
+        .chaos-deal-card {
+            position: absolute;
+            width: 48px; height: 64px;
+            border-radius: 3px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.6);
+            animation: chaos-deal-fly 0.55s cubic-bezier(.2,.8,.25,1) forwards;
+            pointer-events: none;
+            z-index: 220;
+        }
+        @keyframes chaos-intro-fade {
+            from { opacity: 1; } to { opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -53,6 +83,56 @@ const SUIT_PATH = {
 function SuitIcon({ c, className }) {
     return <svg className={className} viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d={SUIT_PATH[c.suit] || SUIT_PATH.star} /></svg>;
 }
+
+// 統一牌面模組（基準 130×173，手牌／縮圖／放大只改 scale）
+const CARD_FACE_W = 130, CARD_FACE_H = 173;
+function UnifiedCardFace({ c, scale = 1, className = '', style = {}, selected = false }) {
+    const card = c && (c.id || c.n) ? c : { n: '?', v: 0 };
+    const resolved = typeof resolveCardForZoom === 'function' ? resolveCardForZoom(card) : card;
+    const gd = (GUIDE[resolved.id] || GUIDE_BY_NAME[resolved.n] || {});
+    const desc = gd.effect || gd.victory || '';
+    const vStr = String(resolved.v != null ? resolved.v : '');
+    const two = vStr.length > 1;
+    const iconCard = isJoker(resolved) ? { ...resolved, suit: 'star' } : resolved;
+    const w = CARD_FACE_W * scale, h = CARD_FACE_H * scale;
+    return (
+        <div className={'relative shrink-0 ' + className} style={{ width: w, height: h, ...style }}>
+            <div className={'hand-card card-bg ' + cardSkinClass(resolved) + (selected ? ' selected' : '') + ' relative bg-slate-900 pointer-events-none'}
+                style={{ width: CARD_FACE_W, height: CARD_FACE_H, transform: 'scale(' + scale + ')', transformOrigin: 'top left', overflow: 'hidden', backgroundSize: '100% 100%' }}>
+                <div className={UI.F.f40}>
+                    {(iconCard.suit || isJoker(resolved)) ? (
+                        <SuitIcon c={iconCard} className={'cd-s ' + suitCls(resolved) + (two ? ' two' : '')} />
+                    ) : null}
+                    <span className={UI.F.f41({ isSelected: selected }) + (two ? ' two' : '')}>{resolved.v}</span>
+                </div>
+                <div className={UI.F.f45}>{resolved.n}</div>
+                <div className={UI.F.f44} style={{ top: '70%', height: '26%' }}>
+                    <div className="w-full h-full text-center text-slate-200 [text-shadow:0_1px_3px_rgba(0,0,0,.9)] flex items-center justify-center"
+                        style={{ fontSize: desc.length > 32 ? 6.5 : desc.length > 24 ? 7.5 : 8, lineHeight: 1.2, overflow: 'hidden' }}>{desc}</div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function bindLongPress(onLong, onShort, ms = 450) {
+    let t = null, fired = false;
+    return {
+        onPointerDown: e => {
+            fired = false;
+            if (e.button != null && e.button !== 0) return;
+            t = setTimeout(() => { fired = true; onLong && onLong(e); }, ms);
+        },
+        onPointerUp: e => {
+            if (t) clearTimeout(t); t = null;
+            if (!fired && onShort) onShort(e);
+        },
+        onPointerLeave: () => { if (t) clearTimeout(t); t = null; },
+        onPointerCancel: () => { if (t) clearTimeout(t); t = null; },
+        onContextMenu: e => { e.preventDefault(); },
+    };
+}
+
 // 依「花式 → 數值 → 牌名」顯示（叫糊列表、規則列用；無花式則略過）
 function cardLabelParts(nameOrCard) {
     if (nameOrCard && typeof nameOrCard === 'object') {
@@ -94,12 +174,8 @@ function Chip({ c, onClick, hl }) {
             <span className={UI.CH.chipName}>{c.n}</span>
         </>
     );
-    if (!onClick) return <button onClick={() => peek && peek(c)} className={cls}>{body}</button>;
-    return ( // 可選取的牌：另附 i 鈕看詳情
-        <span className="inline-flex items-center gap-[1px] shrink-0 max-w-full">
-            <button onClick={onClick} className={cls}>{body}</button>
-            <button onClick={e => { e.stopPropagation(); peek && peek(c); }} className="w-[14px] h-[18px] rounded border border-slate-500/60 bg-slate-800/90 text-[9px] leading-none text-slate-300 active:scale-95">i</button>
-        </span>
+    return (
+        <button type="button" className={cls} {...bindLongPress(() => peek && peek(c), onClick || null)}>{body}</button>
     );
 }
 // 小牌（與面前區同款 cards.jpg 牌面；back = 牌背 cardb.jpg）：用於暗牌／備用牌／棄牌堆／效果選牌
@@ -128,7 +204,7 @@ function OppFront({ cards, cs }) {
             {cards.map((c, i) => {
                 const last = i === n - 1, hl = cs.has(c.uid) ? ' front-card-active' : '';
                 if (last) return (
-                    <button key={c.uid || i} data-uid={c.uid} onClick={() => peek && peek(c)} style={{ top: i * step, height: 96, zIndex: i }}
+                    <button key={c.uid || i} data-uid={c.uid} {...bindLongPress(() => peek && peek(c), null)} style={{ top: i * step, height: 96, zIndex: i }}
                         className={'absolute left-0 w-full front-card-bg bg-slate-900 shadow flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 active:scale-95' + hl}>
                         <span className={UI.E.e55}>{c.v}</span>
                         <span className={'text-2xl ' + suitCls(c)}>{sym(c) || '✦'}</span>
@@ -136,7 +212,7 @@ function OppFront({ cards, cs }) {
                     </button>
                 );
                 return (
-                    <button key={c.uid || i} data-uid={c.uid} onClick={() => peek && peek(c)} style={{ top: i * step, height: step + 3, zIndex: i }}
+                    <button key={c.uid || i} data-uid={c.uid} {...bindLongPress(() => peek && peek(c), null)} style={{ top: i * step, height: step + 3, zIndex: i }}
                         className={'absolute left-0 w-full front-card-top bg-slate-900 shadow flex items-center overflow-hidden active:scale-95' + hl}>
                         <span className="shrink-0 flex items-center gap-[2px] gothic-num font-black text-amber-300 text-[10px] leading-none pl-[15px]"><span className={'text-[9px] ' + suitCls(c)}>{sym(c) || '✦'}</span>{c.v}</span>
                         <span className={'flex-1 min-w-0 text-left font-black text-amber-100 leading-none whitespace-nowrap overflow-hidden pl-[2px] pr-[12px] ' + (c.n.length >= 4 ? 'text-[7px] tracking-[-0.4px]' : c.n.length === 3 ? 'text-[8px]' : 'text-[9px]')}>{c.n}</span>
@@ -198,25 +274,15 @@ function resolveCardForZoom(cOrName) {
     return { id: gd.id, n: name, v: 0 };
 }
 function ZoomCard({ c }) {
-    const card = resolveCardForZoom(c);
-    const gd = GUIDE[card.id] || GUIDE_BY_NAME[card.n] || {};
-    const vStr = String(card.v != null ? card.v : '');
-    const two = vStr.length > 1;
-    return (
-        <div className={'hand-card card-bg ' + cardSkinClass(card) + ' relative w-[150px] h-[200px] bg-slate-900 p-2.5 flex flex-col justify-between shrink-0 mx-auto shadow-2xl pointer-events-none'}>
-            <div className={UI.F.f40}>
-                <SuitIcon c={card} className={'cd-s ' + suitCls(card) + (two ? ' two' : '')} />
-                <span className={UI.F.f41({ isSelected: false }) + (two ? ' two' : '')}>{card.v}</span>
-            </div>
-            <div className={UI.F.f45}>{card.n}</div>
-            <div className={UI.F.f44}><div className={UI.F.f46}>{gd.effect || gd.victory || ''}</div></div>
-        </div>
-    );
+    return <UnifiedCardFace c={c} scale={240 / CARD_FACE_W} className="mx-auto shadow-2xl" />;
 }
 function CardDetail({ c, after, onClose }) {
     const card = resolveCardForZoom(c);
     const gd = GUIDE[card.id] || GUIDE_BY_NAME[card.n] || {};
-    const title = `${sym(card) || (isJoker(card) ? '✦' : '')} ${card.v} ${card.n}`.replace(/^\s+/, '');
+    const isMulti = card.id === 'ZOMBIE' || card.id === 'SKELETON';
+    const title = isMulti
+        ? `♠♣♥♦ ${card.v} ${card.n}`
+        : `${sym(card) || (isJoker(card) ? '✦' : '')} ${card.v} ${card.n}`.replace(/^\s+/, '');
     return (
         <Modal title={title} onClose={onClose}>
             <div className="flex justify-center my-2"><ZoomCard c={card} /></div>
@@ -650,8 +716,58 @@ function GameOverModal({ g, onNew, onNext, onClose }) {
     );
 }
 
-function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, awaiting, onContinue, canUndo, onUndo }) {
+function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, awaiting, onContinue, canUndo, onUndo, onIntroDone }) {
     const [ui, setUi] = useState({ modal: null, sel: null, showBroadcast: true, overDismissed: false, ...(initialUi || {}) });
+    // 開局：洗牌 → 發第一張 → 結束
+    const [intro, setIntro] = useState('shuffle'); // shuffle | deal | null
+    const introDoneRef = useRef(false);
+    useEffect(() => {
+        if (intro !== 'shuffle') return;
+        const t = setTimeout(() => setIntro('deal'), 1200);
+        return () => clearTimeout(t);
+    }, [intro]);
+    useEffect(() => {
+        if (intro !== 'deal') return;
+        const n = g.players.length;
+        const t = setTimeout(() => {
+            setIntro(null);
+            if (!introDoneRef.current) {
+                introDoneRef.current = true;
+                onIntroDone && onIntroDone();
+            }
+        }, 520 + n * 160 + 200);
+        return () => clearTimeout(t);
+    }, [intro, g.players.length, onIntroDone]);
+    // 發牌飛行動畫 DOM
+    useLayoutEffect(() => {
+        if (intro !== 'deal') return;
+        const stage = document.getElementById('chaos-stage');
+        if (!stage) return;
+        const sr = stage.getBoundingClientRect(), sc = (sr.width / STAGE_W) || 1;
+        const ctr = el => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+        // 從畫面中央（洗牌位置）發出，不是牌庫角
+        const from = { x: sr.left + sr.width / 2, y: sr.top + sr.height / 2 };
+        g.players.forEach((pl, i) => {
+            const toEl = pl.id === HUMAN ? document.getElementById('hand-el') : stage.querySelector(`[data-opp="${pl.id}"]`);
+            const to = ctr(toEl) || from;
+            const b = document.createElement('div');
+            b.className = 'card-back chaos-deal-card';
+            const dx = (to.x - from.x) / sc;
+            const dy = (to.y - from.y) / sc;
+            const rot = (pl.id === HUMAN ? 0 : (pl.id % 2 === 0 ? -12 : 12)) + 'deg';
+            b.style.setProperty('--dx', dx + 'px');
+            b.style.setProperty('--dy', dy + 'px');
+            b.style.setProperty('--rot', rot);
+            b.style.left = ((from.x - sr.left) / sc - 24) + 'px';
+            b.style.top = ((from.y - sr.top) / sc - 32) + 'px';
+            b.style.animationDelay = (i * 0.14) + 's';
+            stage.appendChild(b);
+            const kill = () => b.remove();
+            b.addEventListener('animationend', kill);
+            setTimeout(kill, 900 + i * 140);
+        });
+    }, [intro, g.players]);
+
     const patch = o => setUi(u => ({ ...u, ...o }));
     const me = g.players[HUMAN];
     const noPrompt = !g.prompt && !g.gameOver;
@@ -738,6 +854,28 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
 
     return (
         <PeekCtx.Provider value={c => patch({ peek: c })}>
+            {intro && (
+                <div className="absolute inset-0 z-[160] flex flex-col items-center justify-center pointer-events-none" style={{ background: 'rgba(2,6,23,0.55)' }}>
+                    {intro === 'shuffle' && (
+                        <>
+                            <div className="relative w-[80px] h-[100px] mb-4">
+                                {[0,1,2,3,4,5].map(i => (
+                                    <div key={i} className="card-back chaos-shuffle-card" style={{
+                                        left: 14 + (i % 3) * 3,
+                                        top: 10 + Math.floor(i / 3) * 4,
+                                        animationDelay: (i * 0.05) + 's',
+                                        zIndex: i,
+                                    }} />
+                                ))}
+                            </div>
+                            <div className="text-[14px] font-black text-amber-300 tracking-widest">洗牌中…</div>
+                        </>
+                    )}
+                    {intro === 'deal' && (
+                        <div className="text-[14px] font-black text-amber-300 tracking-widest">發放手牌…</div>
+                    )}
+                </div>
+            )}
             <header className={UI.A.a01}>
                 <div className={UI.A.a02}><span className={UI.A.a03}>{VERSION}</span></div>
                 <div className={UI.A.a04}>
@@ -869,7 +1007,7 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                     <div className={UI.E.e53} style={{ width: 72 + (n > 0 ? (n - 1) * step : 0), height: n ? 96 : 0 }}>
                         {me.front.map((c, i) => (
                             <button key={c.uid || i} data-uid={c.uid} className={UI.E.e54({ active: myContrib.has(c.uid) })} style={{ left: i * step, width: 72, height: 96, zIndex: i }}
-                                onClick={() => patch({ modal: { type: 'card', c } })}>
+                                {...bindLongPress(() => patch({ modal: { type: 'card', c } }), null)}>
                                 <span className={UI.E.e55}>{c.v}</span>
                                 <span className={'text-2xl ' + suitCls(c)}>{sym(c) || '✦'}</span>
                                 <span className={UI.E.e57}>{c.n}</span>
@@ -879,7 +1017,7 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                 </div>
             </main>
 
-            <footer id="hand-el" className={UI.F.f01}>
+            <footer id="hand-el" className={UI.F.f01} style={intro ? { opacity: 0, pointerEvents: 'none' } : { transition: 'opacity .3s' }}>
                 {g.gameOver && ui.overDismissed && (
                     <div className={UI.F.f02}><button onClick={g.match.finished ? onNew : onNext} className={UI.F.f03}><i className={UI.F.f04}></i><span>{g.match.finished ? '開始新比賽' : `開始第 ${g.match.round + 1} 小局`}</span></button></div>
                 )}
@@ -909,14 +1047,16 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                             const hh = hints.cards[i] || {};
                             const hintCls = hh.canWin ? ' hand-win' : hh.enables ? ' hand-tenpai' : '';
                             return (
-                                <div key={c.uid} data-uid={c.uid} className={UI.F.f39({ card: c, dragGhost: null, drawAnim: null, isSelected }) + hintCls}
-                                    onClick={() => (canPlay || returning) && patch({ sel: isSelected ? null : i })}>
-                                    <button className={UI.CH.infoDot} onClick={e => { e.stopPropagation(); patch({ modal: { type: 'card', c, after: hh.after } }); }}>i</button>
+                                <div key={c.uid} data-uid={c.uid}
+                                    className={'relative shrink-0 ' + (isSelected ? 'selected ' : '') + hintCls}
+                                    style={{ width: CARD_FACE_W, height: CARD_FACE_H }}
+                                    {...bindLongPress(
+                                        () => patch({ modal: { type: 'card', c, after: hh.after } }),
+                                        () => (canPlay || returning) && patch({ sel: isSelected ? null : i })
+                                    )}>
                                     {hh.canWin && <span className={UI.CH.tagWin}>可勝利</span>}
                                     {!hh.canWin && hh.enables && <span className={UI.CH.tagTenpai}>額外叫糊</span>}
-                                    <div className={UI.F.f40}><SuitIcon c={c} className={'cd-s ' + suitCls(c) + (String(c.v).length > 1 ? ' two' : '')} /><span className={UI.F.f41({ isSelected }) + (String(c.v).length > 1 ? ' two' : '')}>{c.v}</span></div>
-                                    <div className={UI.F.f45}>{c.n}</div>
-                                    <div className={UI.F.f44}><div className={UI.F.f46}>{(GUIDE[c.id] || {}).effect || (GUIDE[c.id] || {}).victory || ''}</div></div>
+                                    <UnifiedCardFace c={c} scale={1} selected={isSelected} />
                                 </div>
                             );
                         })}
@@ -957,20 +1097,328 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
 
 // AI 回合開始時必須先被玩家點擊放行（以 turnNo 記錄）；AI 回合中途的抽牌／出牌／彈窗不再需要點擊
 const needsAck = (s, ack) => !s.gameOver && !s.prompt && s.players[s.currentTurn].isAI && ack !== s.turnNo;
+// ── 圖鑑排序：♠ → ♣ → ♥ → ♦，同花色 1→13，再 0 點小丑，最後道具 ──
+function getSortedGuideCards() {
+    // 花色順序：♠ → ♥ → ♣ → ♦；排序：先數字再花色
+    const suitRank = { spade: 0, heart: 1, club: 2, diamond: 3 };
+    const ALL_SUITS = ['spade', 'heart', 'club', 'diamond'];
+    const monsters = [];
+    // 骨頭／喪屍：拆成 4 花色各一張獨立顯示
+    E.CARD_DEFS.forEach(d => {
+        if (d.id === 'ZOMBIE' || d.id === 'SKELETON') {
+            ALL_SUITS.forEach(suit => monsters.push({ ...d, suit }));
+        } else {
+            monsters.push({ ...d });
+        }
+    });
+    monsters.sort((a, b) => {
+        const va = a.v || 0, vb = b.v || 0;
+        if (va !== vb) return va - vb;
+        const ra = a.suit != null ? suitRank[a.suit] : 4;
+        const rb = b.suit != null ? suitRank[b.suit] : 4;
+        if (ra !== rb) return ra - rb;
+        return (a.n || '').localeCompare(b.n || '', 'zh');
+    });
+    const jokers = [E.SPECIALS.RED_JOKER, E.SPECIALS.BLUE_JOKER];
+    const items = [E.SPECIALS.MOON, E.SPECIALS.PUMPKIN, E.SPECIALS.BLOOD];
+    return [...monsters, ...jokers, ...items];
+}
+
+function BottomBar({ tab, onTab }) {
+    const items = [
+        { id: 'tab1', label: '?', icon: null },
+        { id: 'tutorial', label: '教學', icon: 'fa-solid fa-book-open' },
+        { id: 'start', label: '開始遊戲', icon: 'fa-solid fa-play' },
+        { id: 'cards', label: '卡牌', icon: 'fa-solid fa-layer-group' },
+        { id: 'tab5', label: '?', icon: null },
+    ];
+    return (
+        <nav className="shrink-0 h-[58px] border-t border-amber-500/30 flex items-stretch z-50" style={{ background: "#020617" }}>
+            {items.map(it => {
+                const on = tab === it.id;
+                return (
+                    <button key={it.id} type="button" onClick={() => onTab(it.id)}
+                        className={`flex-1 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-colors ${on ? 'text-amber-300' : 'text-slate-500'}`}>
+                        {it.icon
+                            ? <i className={`${it.icon} text-[15px] ${on ? 'text-amber-300' : 'text-slate-500'}`}></i>
+                            : <span className={`text-[16px] font-black leading-none ${on ? 'text-amber-300' : 'text-slate-600'}`}>?</span>}
+                        <span className={`text-[10px] font-bold leading-none ${on ? 'text-amber-200' : 'text-slate-500'}`}>{it.label}</span>
+                    </button>
+                );
+            })}
+        </nav>
+    );
+}
+
 function StartScreen({ onStart }) {
     const [dark, setDark] = useState(true);
     return (
-        <div className="absolute inset-0 z-[140] flex flex-col items-center justify-center bg-slate-950/85">
-            <div className={UI.CH.startTitle}>群魔</div>
-            <div className={UI.CH.startSub}>單機版：你 vs AI　先取得 2 小局勝利者贏得比賽</div>
-            <div className="flex gap-2 mt-5">
+        <div className="h-full flex flex-col items-center justify-center px-3 relative overflow-hidden"
+            style={{
+                backgroundColor: '#020617',
+                backgroundImage: "linear-gradient(rgba(2,6,23,0.50), rgba(2,6,23,0.50)), url('photo/cover.jpg')",
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+            }}>
+            <div className={UI.CH.startTitle + ' relative z-10'}>群魔</div>
+            <div className={UI.CH.startSub + ' relative z-10'}>單機版：你 vs AI　先取得 2 小局勝利者贏得比賽</div>
+            <div className="flex gap-2 mt-5 relative z-10">
                 <button className={dark ? UI.CH.btn : UI.CH.btnGhost} onClick={() => setDark(true)}>暗牌模式</button>
                 <button className={!dark ? UI.CH.btn : UI.CH.btnGhost} onClick={() => setDark(false)}>全明牌模式</button>
             </div>
-            <div className={UI.CH.startSub}>{dark ? '看不到對手手牌' : '對手手牌全部公開（測試用）'}；選擇人數開始</div>
-            <div className="flex gap-2 mt-4">
+            <div className={UI.CH.startSub + ' relative z-10'}>{dark ? '看不到對手手牌' : '對手手牌全部公開（測試用）'}；選擇人數開始</div>
+            <div className="flex gap-2 mt-4 relative z-10">
                 {[3, 4, 5, 6].map(n => <button key={n} className={UI.CH.btn} onClick={() => onStart(n, dark)}>{n} 人</button>)}
             </div>
+        </div>
+    );
+}
+
+function PlaceholderTab({ label }) {
+    return (
+        <div className="h-full flex flex-col items-center justify-center bg-slate-950/85 px-4">
+            <div className="text-4xl font-black text-slate-600 mb-3">?</div>
+            <div className="text-sm font-bold text-slate-400">{label}</div>
+            <div className="text-[11px] text-slate-500 mt-2">即將推出</div>
+        </div>
+    );
+}
+
+function galleryCardKind(c) {
+    if (c.id === 'RED_JOKER' || c.id === 'BLUE_JOKER') return 'joker';
+    if (c.id === 'MOON' || c.id === 'PUMPKIN' || c.id === 'BLOOD') return 'item';
+    return c.suit || 'none';
+}
+
+// 與手牌相同結構（cd-num / cd-title / cd-desc）；強制 130:173 比例，避免 cover 裁切
+function GalleryCardFace({ c }) {
+    // 圖鑑欄寬約 120：scale = 120/130
+    const scale = 120 / CARD_FACE_W;
+    return <UnifiedCardFace c={c} scale={scale} />;
+}
+
+function CardGalleryReal() {
+    const [peek, setPeek] = useState(null);
+    const [suitFilter, setSuitFilter] = useState('all');
+    const [valFilter, setValFilter] = useState('all');
+    const [openFilter, setOpenFilter] = useState(null); // null | 'suit' | 'val'
+    const list = React.useMemo(() => getSortedGuideCards(), []);
+
+    const filtered = React.useMemo(() => {
+        return list.filter(c => {
+            const kind = galleryCardKind(c);
+            if (suitFilter !== 'all' && kind !== suitFilter) return false;
+            const v = c.v != null ? c.v : 0;
+            if (valFilter !== 'all' && v !== Number(valFilter)) return false;
+            return true;
+        });
+    }, [list, suitFilter, valFilter]);
+
+    // 分組：先數字（1–13），再小丑、道具；同數字內已依 ♠♥♣♦ 排好
+    const groups = React.useMemo(() => {
+        const byVal = new Map();
+        const jokers = [], items = [];
+        filtered.forEach(c => {
+            const kind = galleryCardKind(c);
+            if (kind === 'joker') jokers.push(c);
+            else if (kind === 'item') items.push(c);
+            else {
+                const v = c.v != null ? c.v : 0;
+                if (!byVal.has(v)) byVal.set(v, []);
+                byVal.get(v).push(c);
+            }
+        });
+        const out = [...byVal.keys()].sort((a, b) => a - b).map(v => ({
+            key: 'v' + v,
+            title: String(v),
+            cls: 'text-amber-300 gothic-num',
+            cards: byVal.get(v),
+        }));
+        if (jokers.length) out.push({ key: 'joker', title: '小丑（0）', cls: 'text-amber-300', cards: jokers });
+        if (items.length) out.push({ key: 'item', title: '道具牌', cls: 'text-slate-300', cards: items });
+        return out;
+    }, [filtered]);
+
+    const suitOpts = [
+        { id: 'all', label: '全部花色' },
+        { id: 'spade', label: '♠ 黑桃' },
+        { id: 'heart', label: '♥ 紅心' },
+        { id: 'club', label: '♣ 梅花' },
+        { id: 'diamond', label: '♦ 方塊' },
+        { id: 'joker', label: '小丑' },
+        { id: 'item', label: '道具' },
+    ];
+    const valOpts = [{ id: 'all', label: '全部點數' }].concat(
+        Array.from({ length: 14 }, (_, i) => ({ id: String(i), label: String(i) }))
+    );
+    const suitLabel = (suitOpts.find(o => o.id === suitFilter) || suitOpts[0]).label;
+    const valLabel = (valOpts.find(o => o.id === valFilter) || valOpts[0]).label;
+
+    const hasFilter = suitFilter !== 'all' || valFilter !== 'all';
+    const filterBtn = (active, label, onClick, opts = {}) => (
+        <button type="button" onClick={onClick}
+            className={`flex-1 min-w-0 h-[32px] rounded-md border text-[11px] font-black active:scale-95 flex items-center justify-center gap-0.5 px-1 ${
+                active ? 'bg-amber-500/20 border-amber-400/70 text-amber-200' : 'bg-slate-800 border-slate-600 text-slate-200'
+            }`}>
+            <span className="truncate">{label}</span>
+            {opts.chevron !== false && <i className="fa-solid fa-chevron-down text-[9px] opacity-70 shrink-0"></i>}
+        </button>
+    );
+
+    return (
+        <div className="h-full flex flex-col relative" style={{ background: "#020617" }}>
+            <div className="shrink-0 px-2 pt-2 pb-1 space-y-1.5" style={{ background: "#020617" }}>
+                <div className="flex items-baseline justify-between px-1">
+                    <div className="text-sm font-black text-amber-300">卡牌圖鑑</div>
+                    <div className="text-[10px] text-slate-500">{filtered.length} 張</div>
+                </div>
+                <div className="flex gap-1.5">
+                    {filterBtn(valFilter !== 'all' || openFilter === 'val', valLabel === '全部點數' ? '數字' : ('點數 ' + valLabel), () => setOpenFilter(openFilter === 'val' ? null : 'val'))}
+                    {filterBtn(suitFilter !== 'all' || openFilter === 'suit', suitFilter === 'all' ? '花色' : suitLabel, () => setOpenFilter(openFilter === 'suit' ? null : 'suit'))}
+                    {filterBtn(hasFilter, '清除', () => { setSuitFilter('all'); setValFilter('all'); setOpenFilter(null); }, { chevron: false })}
+                </div>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-2 pt-1 pb-2 space-y-3" onClick={() => openFilter && setOpenFilter(null)}>
+                {groups.length === 0 && (
+                    <div className="text-center text-slate-500 text-xs py-10">沒有符合條件的牌</div>
+                )}
+                {groups.map(g => (
+                    <div key={g.key}>
+                        <div className={`text-[11px] font-black mb-1 sticky top-0 py-0.5 z-10 ${g.cls}`} style={{ background: "#020617" }}>{g.title}</div>
+                        <div className="grid grid-cols-3 gap-2">
+                            {g.cards.map(c => (
+                                <div key={(c.id || c.n) + '-' + (c.suit || '')}
+                                    className="w-full flex justify-center active:scale-95"
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                                    {...bindLongPress(() => setPeek(c), null)}>
+                                    <GalleryCardFace c={c} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* 上方下拉面板（緊貼 filter 按鈕下方）+ 不透明遮罩 */}
+            {openFilter && (
+                <div className="absolute inset-0 z-40" onClick={() => setOpenFilter(null)}>
+                    <div className="absolute inset-0 bg-slate-950/90" />
+                    <div className="absolute inset-x-0 top-0 px-2 pt-[72px]" onClick={e => e.stopPropagation()}>
+                        <div className="rounded-xl border border-amber-500/40 bg-slate-950 shadow-2xl p-3">
+                            <div className="text-[10px] font-black text-slate-400 mb-2">
+                                {openFilter === 'suit' ? '選擇花色' : '選擇點數'}
+                            </div>
+                            <div className={openFilter === 'val' ? 'grid grid-cols-5 gap-1.5' : 'grid grid-cols-2 gap-1.5'}>
+                                {(openFilter === 'suit' ? suitOpts : valOpts).map(o => {
+                                    const on = openFilter === 'suit' ? suitFilter === o.id : valFilter === o.id;
+                                    return (
+                                        <button key={o.id} type="button"
+                                            onClick={() => {
+                                                if (openFilter === 'suit') setSuitFilter(o.id);
+                                                else setValFilter(o.id);
+                                                setOpenFilter(null);
+                                            }}
+                                            className={`h-[40px] rounded-md border text-[13px] font-black active:scale-95 ${
+                                                on ? 'bg-amber-500 border-amber-200 text-slate-950' : 'bg-slate-800 border-slate-600 text-slate-200'
+                                            }`}>
+                                            {o.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button type="button" className={UI.CH.btnGhost + ' w-full mt-3'} onClick={() => setOpenFilter(null)}>關閉</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {peek && <CardDetail c={peek} onClose={() => setPeek(null)} />}
+        </div>
+    );
+}
+
+
+const TUTORIAL_STEPS = [
+    {
+        title: '歡迎來到群魔',
+        body: '這是一款以妖怪牌為核心的對戰遊戲。目標：比對手更快達成某張牌的「勝利條件」，搶先獲得小局勝利。比賽通常先取得 2 小局勝即可。',
+    },
+    {
+        title: '手牌與面前區',
+        body: '每人會有手牌（只有自己能完整運用）與面前區（大家都看得到）。多數勝利條件看的是「面前區」的組合；打出的牌會進入面前區並觸發效果。',
+    },
+    {
+        title: '回合：抽牌 → 出牌',
+        body: '輪到你時先抽牌（或拿中央暗牌並放回一張），再選一張手牌打出。打出後會結算該牌效果，然後換下一位。有些牌能讓你獲得「額外回合」。',
+    },
+    {
+        title: '叫糊（等待）',
+        body: '當你的面前區已接近某張牌的勝利條件時，會顯示「等待：某某牌」。這代表再打出對應的牌就有機會直接獲勝。可點名稱查看該牌條件。',
+    },
+    {
+        title: '道具牌：南瓜／月亮／鮮血',
+        body: '抽到這三張會立刻棄掉並通常再抽或給額外回合。它們是特殊勝利的觸發器：例如南瓜與南瓜王組合、月亮與狼人、鮮血與吸血鬼。',
+    },
+    {
+        title: '紅藍與小丑',
+        body: '♥♦ 與紅小丑偏紅；♠♣ 與藍小丑偏藍。部分牌要求「最多紅色／藍色」。紅／藍小丑可複製同色面前牌的效果，是翻盤關鍵。',
+    },
+    {
+        title: '開始實戰前',
+        body: '建議先到「卡牌」圖鑑瀏覽各牌的勝利條件與效果。正式對局可選暗牌模式（較有資訊戰）或全明牌（較好學習）。準備好就按下方開始練習！',
+    },
+];
+
+function TutorialScreen({ onPractice }) {
+    const [step, setStep] = useState(0);
+    const s = TUTORIAL_STEPS[step];
+    const last = step >= TUTORIAL_STEPS.length - 1;
+    return (
+        <div className="h-full flex flex-col px-3 pt-4 pb-3" style={{ background: '#020617' }}>
+            <div className="text-sm font-black text-amber-300 mb-1">教學關卡</div>
+            <div className="text-[10px] text-slate-500 mb-3">步驟 {step + 1} / {TUTORIAL_STEPS.length}</div>
+            <div className="flex gap-1 mb-4">
+                {TUTORIAL_STEPS.map((_, i) => (
+                    <div key={i} className={`h-1 flex-1 rounded-full ${i <= step ? 'bg-amber-400' : 'bg-slate-700'}`} />
+                ))}
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none">
+                <div className="rounded-xl border border-amber-500/30 bg-slate-900/80 p-4">
+                    <div className="text-base font-black text-amber-200 mb-2">{s.title}</div>
+                    <div className="text-[13px] leading-relaxed text-slate-300 whitespace-pre-wrap">{s.body}</div>
+                </div>
+                <div className="mt-3 text-[11px] text-slate-500 leading-relaxed">
+                    小提示：對局中點任何牌上的「i」或牌面，可查看詳細效果與勝利條件。
+                </div>
+            </div>
+            <div className="shrink-0 flex gap-2 pt-3">
+                <button type="button" className={UI.CH.btnGhost + ' flex-1'} disabled={step === 0}
+                    onClick={() => setStep(x => Math.max(0, x - 1))}>上一步</button>
+                {!last ? (
+                    <button type="button" className={UI.CH.btn + ' flex-1'}
+                        onClick={() => setStep(x => Math.min(TUTORIAL_STEPS.length - 1, x + 1))}>下一步</button>
+                ) : (
+                    <button type="button" className={UI.CH.btn + ' flex-1'} onClick={onPractice}>開始練習（3 人暗牌）</button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function HomeShell({ onStart }) {
+    const [tab, setTab] = useState('start');
+    return (
+        <div className="absolute inset-0 z-[140] flex flex-col" style={{ background: "#020617" }}>
+            <div className="flex-1 min-h-0 relative overflow-hidden" style={{ background: "#020617" }}>
+                {tab === 'start' && <StartScreen onStart={onStart} />}
+                {tab === 'tutorial' && <TutorialScreen onPractice={() => onStart(3, true)} />}
+                {tab === 'cards' && <CardGalleryReal />}
+                {tab === 'tab1' && <PlaceholderTab label="功能一" />}
+                {tab === 'tab5' && <PlaceholderTab label="功能五" />}
+            </div>
+            <BottomBar tab={tab} onTab={setTab} />
         </div>
     );
 }
@@ -989,9 +1437,11 @@ function App() {
         const f = () => setScale(Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H));
         f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
     }, []);
+    const introLockRef = useRef(false);
     const start = (n, dark) => {
         setGid(x => x + 1);
         ackRef.current = -1; undoRef.current = [];
+        introLockRef.current = true;
         gameRef.current = E.newGame(Array.from({ length: n }, (_, i) => ({ name: NAMES[i], isAI: i !== HUMAN })), { darkMode: dark });
         setToast(''); bump();
     };
@@ -1000,6 +1450,7 @@ function App() {
         if (!nx) return;
         setGid(x => x + 1);
         ackRef.current = -1; undoRef.current = [];
+        introLockRef.current = true;
         gameRef.current = nx;
         setToast(''); bump();
     };
@@ -1018,6 +1469,7 @@ function App() {
     useEffect(() => { // AI 與電腦座位的自動行動
         const s = gameRef.current;
         if (!s || s.gameOver) return;
+        if (introLockRef.current) return; // 開局洗牌／發牌動畫中
         const owner = s.prompt ? s.players[s.prompt.playerId] : s.players[s.currentTurn];
         if (!owner.isAI) return;
         if (needsAck(s, ackRef.current)) return; // 等待玩家點擊「繼續」
@@ -1028,17 +1480,17 @@ function App() {
     const awaiting = g && needsAck(g, ackRef.current) ? g.players[g.currentTurn].name : null;
     const onContinue = () => { ackRef.current = gameRef.current.turnNo; bump(); };
     return (
-        <div className={UI.root.r01}>
-            <div id="chaos-stage" className={UI.root.r02} style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: 'center center' }}>
-                <video className="table-bg-video" src="video/bg.mp4" autoPlay loop muted playsInline preload="auto"></video>
-                {g ? <Table key={gid} g={g} dispatch={dispatch} onNew={() => { gameRef.current = null; bump(); }} onNext={nextRound} speed={speed} setSpeed={setSpeed} toast={toast} awaiting={awaiting} onContinue={onContinue} canUndo={undoRef.current.length > 0} onUndo={undo} />
-                    : <StartScreen onStart={start} />}
+        <div className={UI.root.r01} style={{ background: '#020617' }}>
+            <div id="chaos-stage" className={UI.root.r02} style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: 'center center', background: '#020617', boxShadow: 'none', border: 'none' }}>
+                {g && <video className="table-bg-video" src="video/bg.mp4" autoPlay loop muted playsInline preload="auto"></video>}
+                {g ? <Table key={gid} g={g} dispatch={dispatch} onNew={() => { gameRef.current = null; bump(); }} onNext={nextRound} speed={speed} setSpeed={setSpeed} toast={toast} awaiting={awaiting} onContinue={onContinue} canUndo={undoRef.current.length > 0} onUndo={undo} onIntroDone={() => { introLockRef.current = false; bump(); }} />
+                    : <HomeShell onStart={start} />}
             </div>
         </div>
     );
 }
 // ── 進場前預載：video/bg.mp4 與 photo/ 內所有圖片都載入完才進場 ──
-const PRELOAD_IMAGES = ['card', 'cardb', 'cards', '狼card', '吸card', '女card', '科card'].map(n => `photo/${n}.jpg`)
+const PRELOAD_IMAGES = ['cover', 'card', 'cardb', 'cards', '狼card', '吸card', '女card', '科card'].map(n => `photo/${n}.jpg`)
     .concat([0, 1, 2, 3, 4, 5].map(i => window.AVATAR_URL(i)));
 const PRELOAD_VIDEO = 'video/bg.mp4';
 function Boot() {
