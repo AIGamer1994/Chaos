@@ -7,10 +7,10 @@ const CARD_DEFS = [
     { v: 13, n: '克蘇魯', id: 'CTHULHU', suit: 'spade' },
     { v: 13, n: '滑飄', id: 'SLIP', suit: 'club' },
     { v: 12, n: '九尾狐', id: 'NINE_TAILS', suit: 'club' },
-    { v: 12, n: '美猴王', id: 'MONKEY_KING', suit: 'diamond' },
+    { v: 10, n: '美猴王', id: 'MONKEY_KING', suit: 'club' },
     { v: 13, n: '死神', id: 'DEATH', suit: 'diamond' },
-    { v: 12, n: '外星人', id: 'ALIEN', suit: 'heart' },
-    { v: 12, n: '南瓜王', id: 'PUMPKIN_KING', suit: 'spade' },
+    { v: 12, n: '外星人', id: 'ALIEN', suit: 'spade' },
+    { v: 12, n: '南瓜王', id: 'PUMPKIN_KING', suit: 'diamond' },
     { v: 11, n: '魔龍', id: 'DRAGON', suit: 'spade' },
     { v: 11, n: '海怪', id: 'SEA_MONSTER', suit: 'heart' },
     { v: 10, n: '吸血鬼', id: 'VAMPIRE', suit: 'heart' },
@@ -19,7 +19,7 @@ const CARD_DEFS = [
     { v: 9, n: '夢魘', id: 'NIGHTMARE', suit: 'heart' },
     { v: 8, n: '死靈法師', id: 'NECROMANCER', suit: 'heart' },
     { v: 9, n: '沙蟲', id: 'SANDWORM', suit: 'spade' },
-    { v: 7, n: '無頭騎士', id: 'HEADLESS', suit: 'heart' },
+    { v: 10, n: '無頭騎士', id: 'HEADLESS', suit: 'diamond' },
     { v: 7, n: '奇美拉', id: 'CHIMERA', suit: 'spade' },
     { v: 6, n: '魅魔', id: 'SUCCUBUS', suit: 'heart' },
     { v: 6, n: '美杜莎', id: 'MEDUSA', suit: 'spade' },
@@ -65,7 +65,7 @@ const CARD_GUIDE = [
     { id: 'NIGHTMARE', n: '夢魘', victory: '打出前，自己面前區至少有２張紅色牌，而且你是場上面前區最多紅色牌的玩家（平手不算）。', effect: '查看暗牌及備用牌的卡。' },
     { id: 'NECROMANCER', n: '死靈法師', victory: '打出前，自己面前區至少有３張數值２以下的牌。', effect: '從棄牌區選一張放到自己面前。' },
     { id: 'TROLL', n: '巨魔', victory: '打出前，自己面前區至少有２張１０或以上的牌。', effect: '比手牌大，手牌較小的放在面前較大者面前。' },
-    { id: 'HEADLESS', n: '無頭騎士', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '所有玩家棄掉面前數值最小的一張牌。' },
+    { id: 'HEADLESS', n: '無頭騎士', victory: '南瓜牌打出後，手上同時有骷髏和南瓜王。', effect: '將棄牌區或他人面前的【南瓜王】放到自己面前。' },
     { id: 'CHIMERA', n: '奇美拉', victory: '打出前，自己面前區至少有５款不同妖怪。', effect: '令目標棄掉手牌於目標自己面前。' },
     { id: 'SUCCUBUS', n: '魅魔', victory: '被選擇的玩家勝利才能勝利，自己無法勝利。', effect: '秘密選擇一位玩家，該玩家勝利才能勝利。' },
     { id: 'MEDUSA', n: '美杜莎', victory: '打出前，所有玩家面前牌數目一樣，且每人至少１張。', effect: '所有玩家把６或以上的牌放於各自面前。' },
@@ -493,7 +493,7 @@ function getAIAttackCardIndex(p, hold) {
     const hasCalledOpponent = !isDark() && state.players.some(player =>
         player.id !== p.id && getTenpaiInfo(player).length > 0);
     const attackCardIds = hasCalledOpponent
-        ? ['ZOMBIE', 'SANDWORM', 'CTHULHU', 'HEADLESS', 'RED_JOKER', 'BLUE_JOKER']
+        ? ['ZOMBIE', 'SANDWORM', 'CTHULHU', 'RED_JOKER', 'BLUE_JOKER']
         : ['ZOMBIE', 'SANDWORM'];
 
     return p.hand.findIndex(card => {
@@ -510,7 +510,7 @@ function getAIAttackCardIndex(p, hold) {
         }
         if (card.id === 'RED_JOKER' || card.id === 'BLUE_JOKER') {
             return getJokerEffectTargets(card).some(({ card: targetCard }) =>
-                ['ZOMBIE', 'SANDWORM', 'CTHULHU', 'HEADLESS'].includes(targetCard.id));
+                ['ZOMBIE', 'SANDWORM', 'CTHULHU'].includes(targetCard.id));
         }
         return state.players.some(target =>
             target.id !== p.id && !target.immune && target.front.length > 0);
@@ -1110,7 +1110,36 @@ const EFFECTS = {
         return false;
     },
     CTHULHU(p, card) { log('➔ 所有玩家必須棄掉面前數值最大的牌（同數值只棄 1 張，可選擇）：', 'target'); return extremeDiscard(card, 'max', 0); },
-    HEADLESS(p, card) { log('➔ 所有玩家必須棄掉面前數值最小的牌（同數值只棄 1 張，可選擇）：', 'target'); return extremeDiscard(card, 'min', 0); },
+    HEADLESS(p, card) {
+        const options = [];
+        state.discard.forEach((c, index) => {
+            if (c.id === 'PUMPKIN_KING') options.push({ where: 'discard', index });
+        });
+        state.players.forEach(pl => {
+            if (pl.id === p.id || pl.immune) return;
+            pl.front.forEach((c, index) => {
+                if (c.id === 'PUMPKIN_KING') options.push({ where: 'front', playerId: pl.id, index });
+            });
+        });
+        if (options.length === 0) {
+            log(`💀 ${p.name} 的【無頭騎士】想取【南瓜王】，但棄牌區與他人面前都沒有。`, 'sys');
+            return false;
+        }
+        if (!p.isAI) return openPrompt({ type: 'headlessSteal', playerId: p.id, options });
+        // AI：優先搶別人面前，否則從棄牌拿
+        const pick = options.find(o => o.where === 'front') || options[0];
+        let taken;
+        if (pick.where === 'discard') {
+            taken = state.discard.splice(pick.index, 1)[0];
+            log(`💀 ${p.name} 的【無頭騎士】從棄牌區取回【南瓜王】放到自己面前。`, 'effect');
+        } else {
+            const t = state.players[pick.playerId];
+            taken = t.front.splice(pick.index, 1)[0];
+            log(`💀 ${p.name} 的【無頭騎士】從【${t.name}】面前奪走【南瓜王】放到自己面前。`, 'effect');
+        }
+        p.front.push(taken);
+        return false;
+    },
     DRAGON() {
         const by = state.players.map(pl => targetableHandCards(pl));
         const shuffled = shuffle(by.flat()); let k = 0;
@@ -1279,7 +1308,7 @@ function jokerEffect(p, joker) {
     const targets = getJokerEffectTargets(joker);
     if (targets.length === 0) { log(`🃏 ${p.name} 的【${joker.n}】沒有可發動的同色牌效果。`, 'sys'); return false; }
     if (!p.isAI) return openPrompt({ type: 'jokerPick', playerId: p.id, jokerUid: joker.uid, options: targets.map(t => ({ playerId: t.player.id, index: t.index })) });
-    const attack = targets.filter(({ card }) => ['ZOMBIE', 'SANDWORM', 'CTHULHU', 'HEADLESS'].includes(card.id));
+    const attack = targets.filter(({ card }) => ['ZOMBIE', 'SANDWORM', 'CTHULHU'].includes(card.id));
     return activateCopy(p, (attack[0] || targets[0]).card, joker);
 }
 function activateCopy(p, selectedCard, joker) {
@@ -1446,6 +1475,23 @@ const PROMPTS = {
         }
         runSlipThenSettle(); return {};
     },
+    headlessSteal(a, pr, p) {
+        const opt = (pr.options || [])[a.optionIndex];
+        if (!opt) return { error: '選擇無效' };
+        let taken;
+        if (opt.where === 'discard') {
+            if (!state.discard[opt.index] || state.discard[opt.index].id !== 'PUMPKIN_KING') return { error: '棄牌區已無南瓜王' };
+            taken = state.discard.splice(opt.index, 1)[0];
+            log(`💀 ${p.name} 的【無頭騎士】從棄牌區取回【南瓜王】放到自己面前。`, 'effect');
+        } else {
+            const t = state.players[opt.playerId];
+            if (!t || !t.front[opt.index] || t.front[opt.index].id !== 'PUMPKIN_KING') return { error: '目標面前已無南瓜王' };
+            taken = t.front.splice(opt.index, 1)[0];
+            log(`💀 ${p.name} 的【無頭騎士】從【${t.name}】面前奪走【南瓜王】放到自己面前。`, 'effect');
+        }
+        p.front.push(taken);
+        return {};
+    },
     deathSwap(a, pr, p) {
         if (!Number.isInteger(a.discardIndex) || !Number.isInteger(a.handIndex)) return { error: '請選擇棄牌與手牌' };
         if (!state.discard[a.discardIndex] || !p.hand[a.handIndex]) return { error: '選擇無效' };
@@ -1568,8 +1614,8 @@ function aiOppBenefit(p, card) {
     const opps = state.players.filter(o => o.id !== p.id && !o.immune);
     const edge = (pl, mode) => { const vs = pl.front.map(c => c.v || 0); return vs.length ? (mode === 'max' ? Math.max(...vs) : Math.min(...vs)) : 0; };
     switch (card.id) {
-        case 'CTHULHU': case 'HEADLESS': {
-            const mode = card.id === 'CTHULHU' ? 'max' : 'min';
+        case 'CTHULHU': {
+            const mode = 'max';
             return edge(p, mode) - opps.reduce((sum, o) => sum + edge(o, mode), 0); // 自己的損失＝對手的利益
         }
         case 'MEDUSA': case 'WITCH': // 全員補牌：已叫糊的對手可能更接近勝利
