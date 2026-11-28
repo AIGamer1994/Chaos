@@ -6,6 +6,7 @@ const CARD_DEFS = [
     { v: 13, n: '地獄領主', id: 'HELL_LORD', suit: 'heart' },
     { v: 13, n: '克蘇魯', id: 'CTHULHU', suit: 'spade' },
     { v: 13, n: '滑飄', id: 'SLIP', suit: 'club' },
+    { v: 12, n: '九尾狐', id: 'NINE_TAILS', suit: 'club' },
     { v: 12, n: '美猴王', id: 'MONKEY_KING', suit: 'diamond' },
     { v: 13, n: '死神', id: 'DEATH', suit: 'diamond' },
     { v: 12, n: '外星人', id: 'ALIEN', suit: 'heart' },
@@ -49,7 +50,8 @@ const CARD_GUIDE = [
     { id: 'CTHULHU', n: '克蘇魯', victory: '如果牌庫抽完且無人達成勝利條件，則持有克蘇魯的玩家獲勝。', effect: '所有玩家棄掉面前數值最大的一張牌（同數值只棄 1 張，可選擇哪一張）。' },
     { id: 'HELL_LORD', n: '地獄領主', victory: '打出時，猜中兩位玩家手牌。', effect: '猜兩位玩家手牌，猜中後放置於自己面前。' },
     { id: 'SLIP', n: '滑飄', victory: '手持此牌時，最終比點改為點數最低者獲勝。', effect: '最終結算比點前，可將自己面前區一張牌移到其他玩家面前。' },
-    { id: 'MONKEY_KING', n: '美猴王', victory: '打出後獲得猴子標記；面前集齊筋斗雲與定海神針即獲勝。', effect: '把筋斗雲與定海神針洗入牌堆。' },
+    { id: 'NINE_TAILS', n: '九尾狐', victory: '打出前，自己面前區至少有５款不同妖怪。', effect: '面前牌被棄時，自動棄掉九尾狐抵消（該牌留在面前），再抽 1 張補回手牌。' },
+    { id: 'MONKEY_KING', n: '美猴王', victory: '打出後獲得猴子標記；面前集齊筋斗雲與定海神針即獲勝。', effect: '把筋斗雲與定海神針各自隨機插入牌堆（不重洗整副牌）。' },
     { id: 'DEATH', n: '死神', victory: '手持此牌時，最終比點總分額外加上棄牌堆張數。', effect: '從棄牌堆選一張牌與自己手牌交換。' },
     { id: 'CLOUD', n: '筋斗雲', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
     { id: 'NEEDLE', n: '定海神針', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
@@ -606,6 +608,10 @@ function checkVictoryCondition(p, card) {
         case 'SLIP': return false;
         case 'MONKEY_KING': return false;
         case 'DEATH': return false;
+        case 'NINE_TAILS': {
+            const ids = new Set(prevFront.filter(c => c && c.id && !['MOON','PUMPKIN','BLOOD','CLOUD','NEEDLE','RED_JOKER','BLUE_JOKER'].includes(c.id)).map(c => c.id));
+            return ids.size >= 5;
+        }
         case 'ZOMBIE': {
             const count1 = prevFront.filter(c => c.v === 1).length;
             const count2 = prevFront.filter(c => c.v === 2).length;
@@ -975,9 +981,27 @@ function doPlay(index, companionIndex) {
 // 效果函式回傳 true = 已開啟 prompt（等待某位玩家回應），呼叫端不可自行 endTurn；
 // 玩家回應後由 PROMPTS 內對應的處理函式接手，完成才結束回合。
 // 非 AI 座位（真人）有選擇時開 prompt；AI 座位直接沿用原版的自動決策。
-const NO_EFFECT = ['PUMPKIN_KING', 'ALIEN', 'FRANKENSTEIN', 'GHOST', 'SLIP'];
+const NO_EFFECT = ['PUMPKIN_KING', 'ALIEN', 'FRANKENSTEIN', 'GHOST', 'SLIP', 'NINE_TAILS'];
 function openPrompt(pr) { state.prompt = pr; state.phase = 'PROMPT'; return true; }
-function discardFront(pl, idx, text) { putToDiscard(pl.front.splice(idx, 1)[0], text); }
+function discardFront(pl, idx, text) {
+    if (idx < 0 || idx >= pl.front.length) return;
+    const victim = pl.front[idx];
+    // 九尾狐：自動抵消「自己這一張」被棄——棄掉九尾狐，該牌留在面前，再抽 1 張補回手牌
+    const foxI = pl.front.findIndex(c => c.id === 'NINE_TAILS');
+    if (foxI !== -1 && victim.id !== 'NINE_TAILS') {
+        const fox = pl.front.splice(foxI, 1)[0];
+        putToDiscard(fox, `${pl.name} 棄掉【九尾狐】抵消棄牌`);
+        // victim 仍在面前（若 fox 在 victim 之前，idx 需修正，但 victim 物件仍在 front）
+        log(`🦊 ${pl.name} 用【九尾狐】抵消棄掉【${victim.n}】，該牌留在面前。`, 'effect');
+        const drawn = forceDraw(pl, false);
+        if (drawn) {
+            pl.hand.push(drawn);
+            log(`🦊 ${pl.name} 因【九尾狐】補抽了 1 張手牌。`, 'effect');
+        }
+        return;
+    }
+    putToDiscard(pl.front.splice(idx, 1)[0], text);
+}
 
 // 克蘇魯／無頭騎士：每位玩家棄掉面前極端值的牌（同值只棄 1 張，真人可選）。從第 from 位玩家開始，遇到真人需選擇就暫停。
 function extremeDiscard(src, mode, from) {
@@ -1046,13 +1070,12 @@ const EFFECTS = {
         p.monkeyMark = true;
         const cloud = { ...SPECIALS.CLOUD, uid: 'cloud-' + (uidSeq++) };
         const needle = { ...SPECIALS.NEEDLE, uid: 'needle-' + (uidSeq++) };
-        state.deck.push(cloud, needle);
-        // 洗入牌堆
-        for (let i = state.deck.length - 1; i > 0; i--) {
-            const j = Math.floor(rand() * (i + 1));
-            const t = state.deck[i]; state.deck[i] = state.deck[j]; state.deck[j] = t;
-        }
-        log(`🐒 ${p.name} 打出【美猴王】，獲得猴子標記；【筋斗雲】與【定海神針】已洗入牌堆！`, 'effect');
+        // 各隨機插入一個位置，不整副重洗，不打亂原有道具牌相對位置
+        [cloud, needle].forEach(card => {
+            const i = Math.floor(rand() * (state.deck.length + 1));
+            state.deck.splice(i, 0, card);
+        });
+        log(`🐒 ${p.name} 打出【美猴王】，獲得猴子標記；【筋斗雲】與【定海神針】已隨機插入牌堆！`, 'effect');
         checkMonkeyWin(p);
         return false;
     },
