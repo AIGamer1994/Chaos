@@ -5,6 +5,8 @@
 const CARD_DEFS = [
     { v: 13, n: '地獄領主', id: 'HELL_LORD', suit: 'heart' },
     { v: 13, n: '克蘇魯', id: 'CTHULHU', suit: 'spade' },
+    { v: 13, n: '滑飄', id: 'SLIP', suit: 'club' },
+    { v: 13, n: '美猴王', id: 'MONKEY_KING', suit: 'diamond' },
     { v: 12, n: '外星人', id: 'ALIEN', suit: 'heart' },
     { v: 12, n: '南瓜王', id: 'PUMPKIN_KING', suit: 'spade' },
     { v: 11, n: '魔龍', id: 'DRAGON', suit: 'spade' },
@@ -34,6 +36,8 @@ const SPECIALS = {
     MOON: { n: '月亮', v: 0, id: 'MOON' }, 
     PUMPKIN: { n: '南瓜', v: 0, id: 'PUMPKIN' },
     BLOOD: { n: '鮮血', v: 0, id: 'BLOOD' },
+    CLOUD: { n: '筋斗雲', v: 0, id: 'CLOUD' },
+    NEEDLE: { n: '定海神針', v: 0, id: 'NEEDLE' },
     RED_JOKER: { n: '紅小丑', v: 0, id: 'RED_JOKER' },
     BLUE_JOKER: { n: '藍小丑', v: 0, id: 'BLUE_JOKER' }
 };
@@ -43,6 +47,10 @@ const CARD_GUIDE = [
     { id: 'BLUE_JOKER', n: '藍小丑', victory: '打出前，自己面前區有紅小丑。', effect: '選擇任何玩家面前區任意一張藍色牌，發動其效果。' },
     { id: 'CTHULHU', n: '克蘇魯', victory: '如果牌庫抽完且無人達成勝利條件，則持有克蘇魯的玩家獲勝。', effect: '所有玩家棄掉面前數值最大的一張牌（同數值只棄 1 張，可選擇哪一張）。' },
     { id: 'HELL_LORD', n: '地獄領主', victory: '打出時，猜中兩位玩家手牌。', effect: '猜兩位玩家手牌，猜中後放置於自己面前。' },
+    { id: 'SLIP', n: '滑飄', victory: '手持此牌時，最終比點改為點數最低者獲勝。', effect: '最終結算比點前，可將自己面前區一張牌移到其他玩家面前。' },
+    { id: 'MONKEY_KING', n: '美猴王', victory: '打出後獲得猴子標記；自己面前集齊筋斗雲與定海神針即獲勝。', effect: '把筋斗雲與定海神針洗入牌堆。' },
+    { id: 'CLOUD', n: '筋斗雲', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
+    { id: 'NEEDLE', n: '定海神針', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
     { id: 'PUMPKIN_KING', n: '南瓜王', victory: '南瓜牌出現過後，同時打出骷髏／無頭騎士+南瓜王。', effect: '抽到必須打出，不能放入暗牌。可與骷髏／無頭騎士一起打出。' },
     { id: 'ALIEN', n: '外星人', victory: '打出前，除你以外，其他玩家都在叫糊狀態。', effect: '最終結算時，手持此牌，面前區每張牌點數加２。' },
     { id: 'DRAGON', n: '魔龍', victory: '打出前，自己面前區的牌點數總和大於或等於３０。', effect: '查看所有人手牌，並重新派發。' },
@@ -161,6 +169,16 @@ function checkWerewolfWin(card) {
     if (holder) declareWinner(holder, `${holder.name} 在【月亮】出現時手握【狼人】，獲得勝利！`);
 }
 // ===== 取自 index1.html：抽牌邏輯 =====
+function checkMonkeyWin(p) {
+    if (!p || !p.monkeyMark || state.gameOver) return false;
+    const hasC = p.front.some(c => c.id === 'CLOUD');
+    const hasN = p.front.some(c => c.id === 'NEEDLE');
+    if (hasC && hasN) {
+        declareWinner(p, `${p.name} 集齊【筋斗雲】與【定海神針】（猴子標記），獲得勝利！`);
+        return true;
+    }
+    return false;
+}
 function drawCardLogic(player, isActiveTurn) {
     if (state.deck.length === 0) return null;
     let card = state.deck.pop();
@@ -178,6 +196,18 @@ function drawCardLogic(player, isActiveTurn) {
             putToDiscard(card, `${player.name} 因效果抽到道具牌【${card.n}】，直接棄掉`);
             return { card: null, isItem: true };
         }
+    }
+    // 筋斗雲／定海神針：放到面前，再抽／額外回合
+    if (card.id === 'CLOUD' || card.id === 'NEEDLE') {
+        player.front.push(card);
+        log(`☁️ ${player.name} 抽到【${card.n}】，放到面前區。`, 'effect');
+        checkMonkeyWin(player);
+        if (state.gameOver) return { card: null, isItem: true };
+        if (isActiveTurn) {
+            log(`🔔 ${player.name} 因【${card.n}】再抽並繼續回合。`, 'win');
+            state.extraTurn = true;
+        }
+        return { card: null, isItem: true };
     }
     return { card, isItem: false };
 }
@@ -197,6 +227,12 @@ function forceDraw(player, isActiveTurn = false) {
         if (card.id === 'PUMPKIN' || card.id === 'MOON' || card.id === 'BLOOD') {
             putToDiscard(card, `${player.name} 從備用牌抽到道具牌【${card.n}】，直接棄掉`);
             continue; // 道具牌棄掉繼續抽
+        }
+        if (card.id === 'CLOUD' || card.id === 'NEEDLE') {
+            player.front.push(card);
+            log(`☁️ ${player.name} 從備用牌抽到【${card.n}】，放到面前區。`, 'effect');
+            checkMonkeyWin(player);
+            continue;
         }
         log(`📦 ${player.name} 牌庫已空，從備用牌抽了 1 張牌補回（備用牌剩 ${state.reserves.length} 張）。`, 'sys');
         return card;
@@ -275,6 +311,13 @@ function getTenpaiInfo(p, includeAlien = true) {
         const hasBlood = state.discard.some(c => c.id === 'BLOOD');
         const frontValue = p.front.reduce((sum, c) => sum + (c.v || 0), 0);
         if (hasBlood && frontValue === 0) tenpaiList.push('吸血鬼');
+    }
+
+    // 美猴王：有猴子標記且尚未集齊筋斗雲+定海神針
+    if (p.monkeyMark) {
+        const hasC = front.some(c => c.id === 'CLOUD');
+        const hasN = front.some(c => c.id === 'NEEDLE');
+        if (!(hasC && hasN)) tenpaiList.push('美猴王');
     }
 
     // 外星人叫糊：其他玩家都叫糊，而且自己沒有別的叫糊（只有「唯一沒叫糊」的那位玩家才會顯示叫外星人）
@@ -550,6 +593,8 @@ function checkVictoryCondition(p, card) {
         case 'MUMMY':
             return hasAscendingTriple(prevFront);
         case 'GHOST': return hasDescendingTriple(prevFront);
+        case 'SLIP': return false;
+        case 'MONKEY_KING': return false;
         case 'ZOMBIE': {
             const count1 = prevFront.filter(c => c.v === 1).length;
             const count2 = prevFront.filter(c => c.v === 2).length;
@@ -632,7 +677,7 @@ function newGame(specs, opts) {
     state.initialDeckSize = state.deck.length;
     specs.forEach((sp, i) => {
         const p = { id: i, name: sp.name, isAI: !!sp.isAI, uid: sp.uid || null, hand: [], front: [], immune: false,
-                    knownCenter: [], knownReserves: [], bindTo: null };
+                    knownCenter: [], knownReserves: [], bindTo: null, monkeyMark: false };
         const k = state.deck.findIndex(c => c.id !== 'PUMPKIN' && c.id !== 'MOON' && c.id !== 'BLOOD');
         if (k !== -1) p.hand.push(state.deck.splice(k, 1)[0]);
         state.players.push(p);
@@ -693,6 +738,28 @@ function declareWinner(winner, reasonText) {
     });
     finishSmallRound();
 }
+function runSlipThenSettle() {
+    const slip = state.players.find(p => p.hand.some(c => c.id === 'SLIP'));
+    if (!slip) { finishSettlement(); return; }
+    log(`💨 牌庫抽完！${slip.name} 持有【滑飄】：最終比點改為最低分獲勝；可先移動自己面前一張牌到其他玩家面前。`, 'sys');
+    if (slip.front.length === 0) { finishSettlement(); return; }
+    if (!slip.isAI) { openPrompt({ type: 'slipSettle', playerId: slip.id }); return; }
+    // AI：把自己面前最高點移給目前總分最高的對手（拉高對手、利於自己搶最低）
+    const totals = aiSettleTotals(slip);
+    let hi = -1, hiVal = -Infinity;
+    state.players.forEach(pl => {
+        if (pl.id === slip.id) return;
+        if (totals[pl.id] > hiVal) { hiVal = totals[pl.id]; hi = pl.id; }
+    });
+    if (hi >= 0) {
+        let bestI = 0;
+        for (let i = 1; i < slip.front.length; i++) if ((slip.front[i].v || 0) > (slip.front[bestI].v || 0)) bestI = i;
+        const moved = slip.front.splice(bestI, 1)[0];
+        state.players[hi].front.push(moved);
+        log(`💨 ${slip.name} 的【滑飄】將【${moved.n}】移到【${state.players[hi].name}】面前。`, 'sys');
+    }
+    finishSettlement();
+}
 function settleDeckEmpty() {
     const cth = state.players.find(p => p.hand.some(c => c.id === 'CTHULHU'));
     if (cth) { declareWinner(cth, `牌庫抽完！${cth.name} 持有【克蘇魯】，獲得勝利！`); return; }
@@ -707,7 +774,7 @@ function settleDeckEmpty() {
             log(`👻 ${ghost.name} 的【幽靈】將【${mv.target.name}】面前的【${moved.n} (${moved.v})】移動到了自己面前。`, 'sys');
         } else log(`👻 ${ghost.name} 的【幽靈】放棄了移動。`, 'sys');
     }
-    finishSettlement();
+    runSlipThenSettle();
 }
 // ---- AI：最終結算前的【幽靈】移牌（挑最能逆轉賽果的一張，或不移動）----
 // 他人手牌：全明牌模式看得到；暗牌模式只能用「尚未出現的牌」的平均點數估計
@@ -745,7 +812,8 @@ function aiBestGhostMove(p) {
     return bestMove;
 }
 function finishSettlement() {
-    let best = -1, winner = null; const texts = [];
+    const lowWins = state.players.some(p => p.hand.some(c => c.id === 'SLIP'));
+    let best = lowWins ? Infinity : -1, winner = null; const texts = [];
     const rows = []; // 給介面「最終比點動畫」用的結構化資料
     const slim = c => ({ id: c.id, n: c.n, v: c.v || 0, suit: c.suit, uid: c.uid });
     state.players.forEach(p => {
@@ -755,11 +823,14 @@ function finishSettlement() {
         const total = baseFront + alien + hand;
         rows.push({ id: p.id, name: p.name, fronts: p.front.map(slim), alien, hand: p.hand.map(slim), total });
         texts.push(`${p.name}：面前 ${baseFront}${alien ? ` + 外星人加成 ${alien}` : ''} + 手牌 ${hand} = ${total} 點`);
-        if (total > best) { best = total; winner = p; }
+        if (lowWins ? total < best : total > best) { best = total; winner = p; }
     });
+    if (lowWins) log('💨 【滑飄】生效：最終比點改為點數最低者獲勝！', 'win');
     log('🏆 結算全場總點數 (面前+手牌)：', 'win'); log(`📊 ${texts.join(' | ')}`, 'sys');
-    if (winner) declareWinner(winner, `${winner.name} 總點數是 ${best}，獲得勝利！`);
-    state.settlement = { rows, winnerIds: (state.winners || []).slice() };
+    if (winner) declareWinner(winner, lowWins
+        ? `${winner.name} 總點數最低（${best}），獲得勝利！`
+        : `${winner.name} 總點數是 ${best}，獲得勝利！`);
+    state.settlement = { rows, winnerIds: (state.winners || []).slice(), lowWins };
 }
 
 // ---------- 玩家動作 ----------
@@ -784,6 +855,13 @@ function drawReserveForExtraTurn(p) {
     while (state.reserves.length > 0) {
         const card = state.reserves.pop();
         if (card.id === 'PUMPKIN' || card.id === 'MOON' || card.id === 'BLOOD') { putToDiscard(card, `${p.name} 從備用牌抽到道具牌【${card.n}】，直接棄掉`); if (state.gameOver) return ok(); continue; }
+        if (card.id === 'CLOUD' || card.id === 'NEEDLE') {
+            p.front.push(card);
+            log(`☁️ ${p.name} 從備用牌抽到【${card.n}】，放到面前區。`, 'effect');
+            checkMonkeyWin(p);
+            if (state.gameOver) return ok();
+            continue;
+        }
         state.reserveDrawOk = false;
         p.hand.push(card);
         log(`📦 ${p.name} 獲得額外回合且牌庫已空，從備用牌抽了 1 張牌補回（備用牌剩 ${state.reserves.length} 張）。`, 'sys');
@@ -883,7 +961,7 @@ function doPlay(index, companionIndex) {
 // 效果函式回傳 true = 已開啟 prompt（等待某位玩家回應），呼叫端不可自行 endTurn；
 // 玩家回應後由 PROMPTS 內對應的處理函式接手，完成才結束回合。
 // 非 AI 座位（真人）有選擇時開 prompt；AI 座位直接沿用原版的自動決策。
-const NO_EFFECT = ['PUMPKIN_KING', 'ALIEN', 'FRANKENSTEIN', 'GHOST'];
+const NO_EFFECT = ['PUMPKIN_KING', 'ALIEN', 'FRANKENSTEIN', 'GHOST', 'SLIP'];
 function openPrompt(pr) { state.prompt = pr; state.phase = 'PROMPT'; return true; }
 function discardFront(pl, idx, text) { putToDiscard(pl.front.splice(idx, 1)[0], text); }
 
@@ -932,6 +1010,20 @@ function compareEffect(p, card) { // 巨魔／木乃伊
     return openPrompt({ type: 'compareTarget', playerId: p.id, cardId: card.id, targets: targets.map(t => t.id) });
 }
 const EFFECTS = {
+    MONKEY_KING(p) {
+        p.monkeyMark = true;
+        const cloud = { ...SPECIALS.CLOUD, uid: 'cloud-' + (uidSeq++) };
+        const needle = { ...SPECIALS.NEEDLE, uid: 'needle-' + (uidSeq++) };
+        state.deck.push(cloud, needle);
+        // 洗入牌堆
+        for (let i = state.deck.length - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            const t = state.deck[i]; state.deck[i] = state.deck[j]; state.deck[j] = t;
+        }
+        log(`🐒 ${p.name} 打出【美猴王】，獲得猴子標記；【筋斗雲】與【定海神針】已洗入牌堆！`, 'effect');
+        checkMonkeyWin(p);
+        return false;
+    },
     NIGHTMARE(p) {
         p.knownCenter = state.centerCards.map(c => c ? c.uid : null);
         p.knownReserves = state.reserves.map(c => c ? c.uid : null);
@@ -1008,8 +1100,15 @@ const EFFECTS = {
         finishHellLordGuesses(p, targets.slice(0, 2).map((t, i) => ({ targetId: t.id, value: vals[i] })), canWin); return false;
     },
     SEA_MONSTER(p) {
-        while (state.deck.length > 0 && ['MOON', 'PUMPKIN', 'BLOOD'].includes(state.deck[state.deck.length - 1].id) && !state.gameOver) { // 道具牌不可被換進手牌：視為抽出直接棄掉
-            const it = state.deck.pop(); putToDiscard(it, `${p.name} 的【海怪】翻出道具牌【${it.n}】，直接棄掉`);
+        while (state.deck.length > 0 && ['MOON', 'PUMPKIN', 'BLOOD', 'CLOUD', 'NEEDLE'].includes(state.deck[state.deck.length - 1].id) && !state.gameOver) {
+            const it = state.deck.pop();
+            if (it.id === 'CLOUD' || it.id === 'NEEDLE') {
+                p.front.push(it);
+                log(`☁️ ${p.name} 的【海怪】翻出【${it.n}】，放到自己面前。`, 'effect');
+                checkMonkeyWin(p);
+            } else {
+                putToDiscard(it, `${p.name} 的【海怪】翻出道具牌【${it.n}】，直接棄掉`);
+            }
         }
         if (state.gameOver) return false;
         if (state.deck.length === 0) { log(`🌊 ${p.name} 的【海怪】查看牌堆頂，但牌堆已空，效果不發動。`, 'sys'); return false; }
@@ -1251,7 +1350,16 @@ const PROMPTS = {
             const moved = t.front.splice(a.index, 1)[0]; p.front.push(moved);
             log(`👻 ${p.name} 的【幽靈】將【${t.name}】面前的【${moved.n} (${moved.v})】移動到了自己面前。`, 'sys');
         }
-        finishSettlement(); return {};
+        runSlipThenSettle(); return {};
+    },
+    slipSettle(a, pr, p) {
+        if (a.skip === true) { log(`💨 ${p.name} 的【滑飄】放棄了移牌。`, 'sys'); runSlipThenSettle(); return {}; }
+        const t = state.players[a.targetId];
+        if (!t || t.id === p.id || !Number.isInteger(a.index) || !p.front[a.index]) return { error: '選擇無效' };
+        const moved = p.front.splice(a.index, 1)[0];
+        t.front.push(moved);
+        log(`💨 ${p.name} 的【滑飄】將【${moved.n}】移到【${t.name}】面前。`, 'sys');
+        runSlipThenSettle(); return {};
     }
 };
 function answerPrompt(a) {

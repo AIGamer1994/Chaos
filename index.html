@@ -432,6 +432,25 @@ function HellLordDialog({ g, pr, ans }) {
         </Modal>
     );
 }
+function SlipSettleDialog({ g, pr, ans }) {
+    const me = g.players[HUMAN];
+    const others = g.players.filter(p => p.id !== HUMAN).map(p => p.id);
+    const [idx, setIdx] = useState(0);
+    const [tid, setTid] = useState(others[0]);
+    return (
+        <Modal title="滑飄：移牌後最低分獲勝">
+            <div className={UI.CH.m04}>最終比點改為<strong className="text-amber-300">最低分</strong>獲勝。可先把你面前一張牌移給其他玩家，或放棄移牌。</div>
+            <div className={UI.CH.sectionTitle}>你的面前（點選要移走的牌）</div>
+            <div className={UI.CH.m05 + ' !flex-wrap'}>{me.front.map((c, i) => <SmallCard key={i} c={c} hl={idx === i} onClick={() => setIdx(i)} />)}</div>
+            <div className={UI.CH.sectionTitle}>移到哪位玩家</div>
+            <PlayerBtns g={g} ids={others} onPick={setTid} />
+            <div className={UI.CH.m05}>
+                <button className={UI.CH.btn} disabled={!me.front[idx] || tid == null} onClick={() => ans({ targetId: tid, index: idx })}>移動</button>
+                <button className={UI.CH.btnGhost} onClick={() => ans({ skip: true })}>放棄移動</button>
+            </div>
+        </Modal>
+    );
+}
 function PromptDialog({ g, pr, dispatch }) {
     const ans = o => dispatch({ type: 'answer', ...o });
     const me = g.players[HUMAN];
@@ -512,6 +531,7 @@ function PromptDialog({ g, pr, dispatch }) {
                 <FrontPicker g={g} previewAdd entries={entries} onPick={(pid, index) => ans({ targetId: pid, index })} />
                 {pr.type === 'ghostSettle' && <button className={UI.CH.btnGhost + ' w-full mt-2'} onClick={() => ans({ skip: true })}>放棄移動</button>}</Modal>);
         }
+        case 'slipSettle': return <SlipSettleDialog g={g} pr={pr} ans={ans} />;
         default:
             return <Modal title="等待回應"><div className={UI.CH.m04}>{pr.type}</div></Modal>;
     }
@@ -944,6 +964,7 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                         <div key={p.id} data-opp={p.id} className={UI.D.d02({ isDead: false, isTurn })}>
                             <div className={UI.D.d03}>
                                 {me.bindTo === p.id && <span className="text-fuchsia-300">💖</span>}
+                                {p.monkeyMark && <span className="text-amber-300">🐒</span>}
                                 {p.immune && <span className={UI.D.d08}><i className={UI.D.d09}></i>免疫</span>}
                                 <span className="text-amber-300">🏆{g.match.wins[p.id] || 0}</span>
                             </div>
@@ -1029,6 +1050,7 @@ function Table({ g, dispatch, onNew, onNext, speed, setSpeed, toast, initialUi, 
                         <span className={UI.F.f09({ isTurn: g.currentTurn === HUMAN })}>{me.name}</span>
                     </div>
                     {me.bindTo != null && <div className="text-[9px] text-fuchsia-300 text-center">💖 綁定 {g.players[me.bindTo].name}</div>}
+                    {me.monkeyMark && <div className="text-[9px] text-amber-300 text-center">🐒 猴子標記</div>}
                     {me.immune && <div className="text-[9px] text-cyan-300 text-center"><i className="fa-solid fa-shield-halved"></i> 免疫</div>}
                     {hints.tenpai.length > 0 && (
                         <div className="mt-1 w-[78px] flex flex-col items-start">
@@ -1120,7 +1142,7 @@ function getSortedGuideCards() {
         return (a.n || '').localeCompare(b.n || '', 'zh');
     });
     const jokers = [E.SPECIALS.RED_JOKER, E.SPECIALS.BLUE_JOKER];
-    const items = [E.SPECIALS.MOON, E.SPECIALS.PUMPKIN, E.SPECIALS.BLOOD];
+    const items = [E.SPECIALS.MOON, E.SPECIALS.PUMPKIN, E.SPECIALS.BLOOD, E.SPECIALS.CLOUD, E.SPECIALS.NEEDLE].filter(Boolean);
     return [...monsters, ...jokers, ...items];
 }
 
@@ -1187,7 +1209,7 @@ function PlaceholderTab({ label }) {
 
 function galleryCardKind(c) {
     if (c.id === 'RED_JOKER' || c.id === 'BLUE_JOKER') return 'joker';
-    if (c.id === 'MOON' || c.id === 'PUMPKIN' || c.id === 'BLOOD') return 'item';
+    if (c.id === 'MOON' || c.id === 'PUMPKIN' || c.id === 'BLOOD' || c.id === 'CLOUD' || c.id === 'NEEDLE') return 'item';
     return c.suit || 'none';
 }
 
