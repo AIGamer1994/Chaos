@@ -548,6 +548,14 @@ function PromptDialog({ g, pr, dispatch }) {
                 <FrontPicker g={g} previewAdd entries={entries} onPick={(pid, index) => ans({ targetId: pid, index })} />
                 {pr.type === 'ghostSettle' && <button className={UI.CH.btnGhost + ' w-full mt-2'} onClick={() => ans({ skip: true })}>放棄移動</button>}</Modal>);
         }
+        case 'nineTailsProtect':
+            return (<Modal title="九尾狐：是否抵消棄牌">
+                <div className={UI.CH.m04}>你的面前【{pr.cardName}】將被棄掉。是否棄掉【九尾狐】抵消？抵消後該牌留在面前，並再抽 1 張手牌。</div>
+                <div className={UI.CH.m05}>
+                    <button className={UI.CH.btn} onClick={() => ans({ use: true })}>使用九尾狐抵消</button>
+                    <button className={UI.CH.btnGhost} onClick={() => ans({ use: false })}>不抵消，棄掉該牌</button>
+                </div>
+            </Modal>);
         case 'deathSwap': return <DeathSwapDialog g={g} pr={pr} ans={ans} />;
         case 'slipSettle': return <SlipSettleDialog g={g} pr={pr} ans={ans} />;
         default:

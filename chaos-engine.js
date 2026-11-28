@@ -50,7 +50,7 @@ const CARD_GUIDE = [
     { id: 'CTHULHU', n: '克蘇魯', victory: '如果牌庫抽完且無人達成勝利條件，則持有克蘇魯的玩家獲勝。', effect: '所有玩家棄掉面前數值最大的一張牌（同數值只棄 1 張，可選擇哪一張）。' },
     { id: 'HELL_LORD', n: '地獄領主', victory: '打出時，猜中兩位玩家手牌。', effect: '猜兩位玩家手牌，猜中後放置於自己面前。' },
     { id: 'SLIP', n: '滑飄', victory: '手持此牌時，最終比點改為點數最低者獲勝。', effect: '最終結算比點前，可將自己面前區一張牌移到其他玩家面前。' },
-    { id: 'NINE_TAILS', n: '九尾狐', victory: '打出前，自己面前區至少有５款不同妖怪。', effect: '面前牌被棄時，自動棄掉九尾狐抵消（該牌留在面前），再抽 1 張補回手牌。' },
+    { id: 'NINE_TAILS', n: '九尾狐', victory: '打出前，自己面前區至少有５款不同妖怪。', effect: '面前牌被棄時，可選擇棄掉九尾狐抵消（該牌留在面前），再抽 1 張補回手牌。' },
     { id: 'MONKEY_KING', n: '美猴王', victory: '打出後獲得猴子標記；面前集齊筋斗雲與定海神針即獲勝。', effect: '把筋斗雲與定海神針各自隨機插入牌堆（不重洗整副牌）。' },
     { id: 'DEATH', n: '死神', victory: '手持此牌時，最終比點總分額外加上棄牌堆張數。', effect: '從棄牌堆選一張牌與自己手牌交換。' },
     { id: 'CLOUD', n: '筋斗雲', victory: '無（美猴王集齊條件之一）。', effect: '抽到時放到自己面前，再抽一張並繼續回合。' },
@@ -983,24 +983,43 @@ function doPlay(index, companionIndex) {
 // 非 AI 座位（真人）有選擇時開 prompt；AI 座位直接沿用原版的自動決策。
 const NO_EFFECT = ['PUMPKIN_KING', 'ALIEN', 'FRANKENSTEIN', 'GHOST', 'SLIP', 'NINE_TAILS'];
 function openPrompt(pr) { state.prompt = pr; state.phase = 'PROMPT'; return true; }
-function discardFront(pl, idx, text) {
-    if (idx < 0 || idx >= pl.front.length) return;
+function applyNineTailsProtect(pl, victim) {
+    const foxI = pl.front.findIndex(c => c.id === 'NINE_TAILS');
+    if (foxI === -1) return false;
+    const fox = pl.front.splice(foxI, 1)[0];
+    putToDiscard(fox, `${pl.name} 棄掉【九尾狐】抵消棄牌`);
+    log(`🦊 ${pl.name} 用【九尾狐】抵消棄掉【${victim.n}】，該牌留在面前。`, 'effect');
+    const drawn = forceDraw(pl, false);
+    if (drawn) {
+        pl.hand.push(drawn);
+        log(`🦊 ${pl.name} 因【九尾狐】補抽了 1 張手牌。`, 'effect');
+    }
+    return true;
+}
+// 回傳 true＝已開九尾狐選擇 prompt（呼叫端需暫停）
+function discardFront(pl, idx, text, resume) {
+    if (idx < 0 || idx >= pl.front.length) return false;
     const victim = pl.front[idx];
-    // 九尾狐：自動抵消「自己這一張」被棄——棄掉九尾狐，該牌留在面前，再抽 1 張補回手牌
     const foxI = pl.front.findIndex(c => c.id === 'NINE_TAILS');
     if (foxI !== -1 && victim.id !== 'NINE_TAILS') {
-        const fox = pl.front.splice(foxI, 1)[0];
-        putToDiscard(fox, `${pl.name} 棄掉【九尾狐】抵消棄牌`);
-        // victim 仍在面前（若 fox 在 victim 之前，idx 需修正，但 victim 物件仍在 front）
-        log(`🦊 ${pl.name} 用【九尾狐】抵消棄掉【${victim.n}】，該牌留在面前。`, 'effect');
-        const drawn = forceDraw(pl, false);
-        if (drawn) {
-            pl.hand.push(drawn);
-            log(`🦊 ${pl.name} 因【九尾狐】補抽了 1 張手牌。`, 'effect');
+        if (!pl.isAI) {
+            openPrompt({
+                type: 'nineTailsProtect',
+                playerId: pl.id,
+                index: idx,
+                cardUid: victim.uid,
+                cardName: victim.n,
+                text: text || '',
+                resume: resume || null
+            });
+            return true;
         }
-        return;
+        // AI：自動用九尾狐抵消
+        applyNineTailsProtect(pl, victim);
+        return false;
     }
     putToDiscard(pl.front.splice(idx, 1)[0], text);
+    return false;
 }
 
 // 克蘇魯／無頭騎士：每位玩家棄掉面前極端值的牌（同值只棄 1 張，真人可選）。從第 from 位玩家開始，遇到真人需選擇就暫停。
@@ -1013,10 +1032,15 @@ function extremeDiscard(src, mode, from) {
         const vals = cands.map(x => x.card.v || 0);
         const ev = mode === 'max' ? Math.max(...vals) : Math.min(...vals);
         const ext = cands.filter(x => (x.card.v || 0) === ev);
-        if (ext.length === 1) { discardFront(pl, ext[0].index, `${pl.name} 因【${src.n}】效果棄掉`); continue; }
+        const resume = { kind: 'extreme', src: { uid: src.uid, n: src.n }, mode, from: i + 1 };
+        if (ext.length === 1) {
+            if (discardFront(pl, ext[0].index, `${pl.name} 因【${src.n}】效果棄掉`, resume)) return true;
+            continue;
+        }
         if (pl.isAI) {
             const sel = ext.map(o => ({ ...o, threat: getAIThreatReduction(pl, o.index) })).sort((x, y) => y.threat - x.threat || rand() - 0.5)[0];
-            discardFront(pl, sel.index, `${pl.name} 因【${src.n}】效果棄掉`); continue;
+            if (discardFront(pl, sel.index, `${pl.name} 因【${src.n}】效果棄掉`, resume)) return true;
+            continue;
         }
         return openPrompt({ type: 'extremeDiscard', playerId: pl.id, mode, sourceUid: src.uid, sourceName: src.n, nextIndex: i + 1, options: ext.map(x => x.index) });
     }
@@ -1294,8 +1318,23 @@ const PROMPTS = {
     extremeDiscard(a, pr) {
         if (!pr.options.includes(a.index)) return { error: '選擇無效' };
         const pl = state.players[pr.playerId];
-        discardFront(pl, a.index, `${pl.name} 因【${pr.sourceName}】效果棄掉`);
+        const resume = { kind: 'extreme', src: { uid: pr.sourceUid, n: pr.sourceName }, mode: pr.mode, from: pr.nextIndex };
+        if (discardFront(pl, a.index, `${pl.name} 因【${pr.sourceName}】效果棄掉`, resume)) return { next: true };
         return extremeDiscard({ uid: pr.sourceUid, n: pr.sourceName }, pr.mode, pr.nextIndex) ? { next: true } : {};
+    },
+    nineTailsProtect(a, pr, p) {
+        const idx = p.front.findIndex(c => c.uid === pr.cardUid);
+        if (a.use === true) {
+            if (idx === -1) return { error: '目標牌已不在面前' };
+            applyNineTailsProtect(p, p.front[idx]);
+        } else {
+            if (idx !== -1) putToDiscard(p.front.splice(idx, 1)[0], pr.text);
+            else log(`🦊 ${p.name} 選擇不抵消，但目標牌已不在面前。`, 'sys');
+        }
+        if (pr.resume && pr.resume.kind === 'extreme') {
+            return extremeDiscard(pr.resume.src, pr.resume.mode, pr.resume.from) ? { next: true } : {};
+        }
+        return {};
     },
     compareTarget(a, pr, p) {
         if (!pr.targets.includes(a.targetId)) return { error: '目標無效' };
@@ -1306,14 +1345,14 @@ const PROMPTS = {
     zombieTarget(a, pr, p) {
         if (!pr.targets.includes(a.targetId)) return { error: '目標無效' };
         const t = state.players[a.targetId], opts = getZombieDiscardOptions(t, p.id, pr.sourceUid);
-        if (opts.length === 1) { discardFront(t, opts[0].index, `${t.name} 因【喪屍】效果被迫棄掉面前的牌`); return {}; }
+        if (opts.length === 1) { return discardFront(t, opts[0].index, `${t.name} 因【喪屍】效果被迫棄掉面前的牌`) ? { next: true } : {}; }
         openPrompt({ type: 'zombieCard', playerId: p.id, targetId: t.id, sourceUid: pr.sourceUid, options: opts.map(o => o.index) });
         return { next: true };
     },
     zombieCard(a, pr, p) {
         const t = state.players[pr.targetId];
         if (!pr.options.includes(a.index) || t.immune || !getZombieDiscardOptions(t, p.id, pr.sourceUid).some(o => o.index === a.index)) return { error: '選擇無效' };
-        discardFront(t, a.index, `${t.name} 因【喪屍】效果被迫棄掉面前的牌`); return {};
+        return discardFront(t, a.index, `${t.name} 因【喪屍】效果被迫棄掉面前的牌`) ? { next: true } : {};
     },
     sandwormPick(a, pr, p) {
         const t = state.players[a.targetId];
